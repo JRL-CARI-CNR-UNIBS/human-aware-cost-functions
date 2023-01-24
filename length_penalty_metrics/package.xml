@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>length_penalty_metrics</name>
+  <version>0.0.0</version>
+  <description>The length_penalty_metrics package</description>
+
+  <maintainer email="c.tonola001@unibs.it">cesare</maintainer>
+
+  <license>TODO</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>roscpp</build_depend>
+  <build_export_depend>roscpp</build_export_depend>
+  <exec_depend>roscpp</exec_depend>
+
+  <depend>graph_core</depend>
+  <depend>velocity_scaling_iso15066</depend>
+
+  <export>
+
+  </export>
+</package>
