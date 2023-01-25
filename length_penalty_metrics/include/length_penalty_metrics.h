@@ -1,6 +1,6 @@
 #pragma once
 /*
-Copyright (c) 2019, Cesare Tonola University of Brescia c.tonola001@unibs.it
+Copyright (c) 2023, Cesare Tonola University of Brescia c.tonola001@unibs.it
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without

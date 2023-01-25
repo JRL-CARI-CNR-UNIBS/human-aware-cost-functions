@@ -1,6 +1,6 @@
 #pragma once
 /*
-Copyright (c) 2019, Cesare Tonola University of Brescia c.tonola001@unibs.it
+Copyright (c) 2023, Cesare Tonola University of Brescia c.tonola001@unibs.it
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -26,32 +26,32 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+
 #include <ros/ros.h>
 #include <eigen3/Eigen/Core>
 
-/* The purpose of the class is the definition of a template for safety related velocity scaling factor estimator.
- * The goal is to compute an approximation of the scaling factor lambda that the robot will experiment moving from a
- * configuration q1 to a configuration q2, given the obstacles positions (e.g., human's head, arms and torso positions)
-*/
+namespace ssm15066_estimator
+{
 
- namespace ssm15066
- {
- class VelocityScalingEstimator;
- typedef std::shared_ptr<VelocityScalingEstimator> VelocityScalingEstimatorPtr;
+/**
+ * @brief The Distance struct collects information about the distance between a robot point of interest (poi) and an object.
+ */
+struct Distance
+{
+  double distance_;
+  Eigen::Vector3d distance_vector_;
+  Eigen::VectorXd robot_configuration_;
 
+  /**
+   * @brief robot_poi_ is the index which identifies the poi on the robot structure
+   */
+  unsigned int robot_poi_;
 
- class VelocityScalingEstimator
- {
- private:
-   Eigen::Matrix<double,3,Eigen::Dynamic> obstacles_positions_; //x,y,z (raws) of obstacles (cols). Number of cols depends on the number of obstacles of the scene
+  /**
+   * @brief object_ is the index which identifies the specific object in the scene
+   */
+  unsigned int object_;
+};
 
- public:
-   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-   VelocityScalingEstimator();
-   VelocityScalingEstimator(const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions);
-
-   void setObstaclesPositions(const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions);
-   double computeScalingFactor(const Eigen::VectorXd& q1, const Eigen::VectorXd& q2) = 0;
- };
-
- }
+typedef std::shared_ptr<Distance> DistancePtr;
+}
