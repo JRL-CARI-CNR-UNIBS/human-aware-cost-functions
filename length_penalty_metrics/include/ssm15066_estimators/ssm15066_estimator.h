@@ -26,12 +26,9 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <min_distance_solvers/min_distance_solver.h>
-
-/* The purpose of the class is the definition of a template for safety related velocity scaling (SSM ISO-15066) factor estimator.
- * The goal is to compute an approximation of the scaling factor that the robot will experiment moving from a
- * configuration q1 to a configuration q2, given the obstacles positions (e.g., human's head, arms and torso positions)
-*/
+#include <ros/ros.h>
+#include <eigen3/Eigen/Core>
+#include <rosdyn_core/primitives.h>
 
 namespace ssm15066_estimator
 {
@@ -40,22 +37,37 @@ typedef std::shared_ptr<SSM15066Estimator> SSM15066EstimatorPtr;
 
 /**
   * @brief The SSM15066Estimator class is a template for safety related velocity scaling factor (SSM ISO-15066) estimator.
-  * The goal is to compute an approximation of the scaling factor lambda that the robot will experiment moving from a
+  * The goal is to compute an approximation of the scaling factor that the robot will experiment moving from a
   * configuration q1 to a configuration q2, given the obstacles positions (e.g., human's head, arms and torso positions)
   */
 class SSM15066Estimator
 {
-private:
-  /**
-   * @brief distance_calculator_ is the object in charge of computing the minimum distance between
-   * a set of robot's points of interest (poi) and a set of objects.
-   */
-  MinDistanceSolverPtr distance_calculator_;
+protected:
 
-//  /**
-//   * @brief v_h_ is the cartesian human velocity towards the robot.  NOT CONSIDERED FOR NOW
-//   */
-//  double v_h_;
+  /**
+   * @brief chain_ is the robot's structure.
+   */
+  rosdyn::ChainPtr chain_;
+
+  /**
+   * @brief obstacles_positions_: x,y,z (rows) of obstacles (cols). Number of cols depends on the number of obstacles present in the scene.
+   */
+  Eigen::Matrix<double,3,Eigen::Dynamic> obstacles_positions_;
+
+  /**
+   * @brief inv_max_speed_ is the inverse of the max joints speed.
+   */
+  Eigen::VectorXd inv_max_speed_;
+
+  /**
+  * @brief max_step_size_: max step between consecutive points along a connection for which the distance robot-obstacles is measured.
+  */
+  double max_step_size_;
+
+  //  /**
+  //   * @brief v_h_ is the cartesian human velocity towards the robot.  NOT CONSIDERED FOR NOW
+  //   */
+  //  double v_h_;
 
   /**
    * @brief t_r_ is the reaction time of the system.
@@ -75,43 +87,47 @@ private:
   /**
    * @brief min_distance_ is the minimum human-robot allowed distance.
    */
-  double min_distance_ ;
+  double min_distance_;
 
   /**
    * @brief max_cart_acc_ is the maximum cartesian robot acceleration (m/s^2)
    */
-  double max_cart_acc_ ;
+  double max_cart_acc_;
 
   /**
-   * @brief self_distance_ ??????????????????????????????????????????????????????????????
+   * @brief self_distance_
    */
   double self_distance_;
 
-  /**
-   * @brief chain_ is the robot's structure.
-   */
-  rosdyn::ChainPtr chain_;
-
-  /**
-   * @brief inv_max_speed_ is the inverse of the max joints speed.
-   */
-  Eigen::VectorXd inv_max_speed_;
-
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-  SSM15066Estimator(const MinDistanceSolverPtr &distance_calculator);
+  SSM15066Estimator(const rosdyn::ChainPtr &chain, const double& max_step_size=0.05);
+  SSM15066Estimator(const rosdyn::ChainPtr &chain, const double& max_step_size,
+                    const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions);
 
+  void updateMembers();
+  void setMaxStepSize(const double& max_step_size);
+  void setReactionTime(const double& t_r){t_r_ = t_r;}
+  void setMaxCartAcc(const double& max_cart_acc){max_cart_acc_ = max_cart_acc;}
+  void setMinDistance(const double& min_distance){min_distance_ = min_distance;}
+  void setSelfDistance(const double& self_distance){self_distance_ = self_distance;}
   void setObstaclesPositions(const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions)
-  {distance_calculator_->setObstaclesPositions(obstacles_positions);}
+  {obstacles_positions_ = obstacles_positions;}
 
   /**
-   * @brief computeScalingFactor computes an approximation of the scaling factor the robot will experience travelling from
+   * @brief computeWorstCaseScalingFactor computes an approximation of the scaling factor the robot will experience travelling from
    * q1 to q2, according to SSM ISO-15066. The maximum robot joints' velocities are considered for this computation.
    * @param q1.
    * @param q2.
    * @return the scaling factor.
    */
-  double computeScalingFactor(const Eigen::VectorXd& q1, const Eigen::VectorXd& q2);
+  virtual double computeScalingFactor(const Eigen::VectorXd& q1, const Eigen::VectorXd& q2);
+
+  /**
+   * @brief clone creates a copy of the object
+   * @return the cloned object
+   */
+  virtual SSM15066EstimatorPtr clone();
 };
 
 }

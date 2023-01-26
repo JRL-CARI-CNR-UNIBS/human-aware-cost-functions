@@ -32,16 +32,10 @@ namespace pathplan
 {
 
 LengthPenaltyMetrics::LengthPenaltyMetrics():
-  Metrics()
-{
-  obstacles_position_.clear();
-}
+  Metrics(),ssm15066_estimator_(nullptr){}
 
-LengthPenaltyMetrics::LengthPenaltyMetrics(const std::vector<Eigen::Vector3d>& obstacles_position):
-  obstacles_position_(obstacles_position),
-  Metrics()
-{
-}
+LengthPenaltyMetrics::LengthPenaltyMetrics(const ssm15066_estimator::SSM15066EstimatorPtr &ssm15066_estimator):
+  Metrics(),ssm15066_estimator_(ssm15066_estimator){}
 
 double LengthPenaltyMetrics::cost(const NodePtr& node1,
                                   const NodePtr& node2)
@@ -52,7 +46,15 @@ double LengthPenaltyMetrics::cost(const NodePtr& node1,
 double LengthPenaltyMetrics::cost(const Eigen::VectorXd& configuration1,
                                   const Eigen::VectorXd& configuration2)
 {
-  double lambda = getLambda(configuration1, configuration2);
+  double scaling_factor = ssm15066_estimator_->computeScalingFactor(configuration1,configuration2);
+  assert(scaling_factor>=0 && scaling_factor <=1);
+
+  double lambda;
+  if(scaling_factor == 0)
+    lambda = std::numeric_limits<double>::infinity();
+  else
+    lambda = 1/scaling_factor;
+
   return (Metrics::cost(configuration1, configuration2))*lambda;
 }
 
@@ -69,16 +71,10 @@ double LengthPenaltyMetrics::utopia(const Eigen::VectorXd& configuration1,
   return Metrics::utopia(configuration1, configuration2);
 }
 
-double LengthPenaltyMetrics::getLambda(const Eigen::VectorXd& configuration1,  //DA FARE
-                                       const Eigen::VectorXd& configuration2)
-{
-  ROS_ERROR("TO BE IMPLEMENTED");
-  return 0;
-}
-
 MetricsPtr LengthPenaltyMetrics::clone()
 {
-  return std::make_shared<LengthPenaltyMetrics>();
+  ssm15066_estimator::SSM15066EstimatorPtr ssm15066_estimator_cloned =ssm15066_estimator_->clone();
+  return std::make_shared<LengthPenaltyMetrics>(ssm15066_estimator_cloned);
 }
 
 }

@@ -113,10 +113,4 @@ DistancePtr MinDistanceSolver::computeMinDistance(const Eigen::VectorXd& q1, con
 
   return res;
 }
-
-Eigen::VectorXd MinDistanceSolver::getMaxJointsVelocity(const Eigen::VectorXd& q1, const Eigen::VectorXd& q2)
-{
-
-}
-
 }

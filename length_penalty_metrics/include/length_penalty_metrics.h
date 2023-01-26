@@ -28,9 +28,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <graph_core/metrics.h>
 #include <graph_core/graph/node.h>
+#include <ssm15066_estimators/parallel_ssm15066_estimator.h>
 
-/* The metric computes the Euclidean distance between two nodes and penalizes it based on
- * an estimation on how much the robot would be slown down by the safety velocity scaling
+namespace pathplan
+{
+class LengthPenaltyMetrics;
+typedef std::shared_ptr<LengthPenaltyMetrics> LengthPenaltyMetricsPtr;
+
+/**
+ * @brief The LengthPenaltyMetrics class computes the Euclidean distance between two nodes and penalizes
+ * it based on an estimation on how much the robot would be slown down by the safety velocity scaling
  * unit, due to being close to an obstacle (e.g., human being) while crossing that connection.
  *
  *                            c(q1,q2) = ||q2-q1||*lambda,
@@ -38,28 +45,19 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *                     where lambda = (1+(t_safety - t_nom)/t_nom)
 */
 
-namespace pathplan
-{
-class LengthPenaltyMetrics;
-typedef std::shared_ptr<LengthPenaltyMetrics> LengthPenaltyMetricsPtr;
-
 class LengthPenaltyMetrics: public Metrics
 {
-private:
-  std::vector<Eigen::Vector3d> obstacles_position_;
-
-  virtual double getLambda(const Eigen::VectorXd& configuration1,
-                           const Eigen::VectorXd& configuration2);
+protected:
+  ssm15066_estimator::SSM15066EstimatorPtr ssm15066_estimator_;
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   LengthPenaltyMetrics();
-  LengthPenaltyMetrics(const std::vector<Eigen::Vector3d>& obstacles_position);
+  LengthPenaltyMetrics(const ssm15066_estimator::SSM15066EstimatorPtr& ssm15066_estimator);
 
-  void setObstaclesPosition(const std::vector<Eigen::Vector3d>& obstacles_position)
+  inline void setObstaclesPosition(const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions)
   {
-    obstacles_position_.clear();
-    obstacles_position_ = obstacles_position;
+    ssm15066_estimator_->setObstaclesPositions(obstacles_positions);
   }
 
   virtual double cost(const NodePtr& node1,

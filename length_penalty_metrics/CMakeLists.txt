@@ -21,8 +21,18 @@ include_directories(
   )
 add_library(${PROJECT_NAME}
 src/length_penalty_metrics.cpp
+
 src/ssm15066_estimators/ssm15066_estimator.cpp
+src/ssm15066_estimators/parallel_ssm15066_estimator.cpp
+
 src/min_distance_solvers/min_distance_solver.cpp
 )
 add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
+
+add_executable(test_length_penalty_metrics src/test/test_length_penalty_metrics.cpp)
+add_dependencies(test_length_penalty_metrics ${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(test_length_penalty_metrics
+${PROJECT_NAME}
+${catkin_LIBRARIES}
+)

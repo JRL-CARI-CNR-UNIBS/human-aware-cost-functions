@@ -41,7 +41,7 @@ typedef std::shared_ptr<MinDistanceSolver> MinDistanceSolverPtr;
  */
 class MinDistanceSolver
 {
-private:
+protected:
   /**
   * @brief max_step_size_: max step between consecutive points along a connection for which the distance robot-obstacles is measured.
   */
@@ -56,15 +56,6 @@ private:
    * @brief obstacles_positions_: x,y,z (rows) of obstacles (cols). Number of cols depends on the number of obstacles present in the scene.
    */
   Eigen::Matrix<double,3,Eigen::Dynamic> obstacles_positions_;
-
-  /**
-   * @brief getMaxJointsVelocity: computes the joint velocity to move from q1 to q2 considering the maximum velocity limits.
-   * The slowest joint goes at maximum speed while the others slow down accordingly.
-   * @param q1: first configuration of the connection.
-   * @param q2: last configuration of the connection.
-   * @return the joints velocities computed.
-   */
-  Eigen::VectorXd getMaxJointsVelocity(const Eigen::VectorXd& q1, const Eigen::VectorXd& q2);
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
