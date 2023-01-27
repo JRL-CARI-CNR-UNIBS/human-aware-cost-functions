@@ -17,7 +17,6 @@
   <depend>velocity_scaling_iso15066</depend>
   <depend>rosdyn_core</depend>
 
-
   <export>
 
   </export>

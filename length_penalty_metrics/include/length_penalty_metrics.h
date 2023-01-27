@@ -42,7 +42,7 @@ typedef std::shared_ptr<LengthPenaltyMetrics> LengthPenaltyMetricsPtr;
  *
  *                            c(q1,q2) = ||q2-q1||*lambda,
  *
- *                     where lambda = (1+(t_safety - t_nom)/t_nom)
+ *          where lambda = (1+(t_safety - t_nom)/t_nom) ~= max(v_safety/v_r, 1)
 */
 
 class LengthPenaltyMetrics: public Metrics
@@ -55,9 +55,14 @@ public:
   LengthPenaltyMetrics();
   LengthPenaltyMetrics(const ssm15066_estimator::SSM15066EstimatorPtr& ssm15066_estimator);
 
-  inline void setObstaclesPosition(const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions)
+  void setObstaclesPosition(const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions)
   {
     ssm15066_estimator_->setObstaclesPositions(obstacles_positions);
+  }
+
+  void addObstaclePosition(const Eigen::Vector3d& obstacle_position)
+  {
+    ssm15066_estimator_->addObstaclePosition(obstacle_position);
   }
 
   virtual double cost(const NodePtr& node1,

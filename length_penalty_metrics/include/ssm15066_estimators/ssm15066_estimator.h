@@ -111,8 +111,13 @@ public:
   void setMaxCartAcc(const double& max_cart_acc){max_cart_acc_ = max_cart_acc;}
   void setMinDistance(const double& min_distance){min_distance_ = min_distance;}
   void setSelfDistance(const double& self_distance){self_distance_ = self_distance;}
-  void setObstaclesPositions(const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions)
-  {obstacles_positions_ = obstacles_positions;}
+  void setObstaclesPositions(const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions){obstacles_positions_ = obstacles_positions;}
+
+  /**
+   * @brief addObstaclePosition adds an obstacle to the already existing obstacle matrix.
+   * @param obstacle_position is the new obstacle position vector (x,y,z)
+   */
+  void addObstaclePosition(const Eigen::Vector3d& obstacle_position);
 
   /**
    * @brief computeWorstCaseScalingFactor computes an approximation of the scaling factor the robot will experience travelling from

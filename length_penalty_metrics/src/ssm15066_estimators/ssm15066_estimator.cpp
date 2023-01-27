@@ -146,6 +146,16 @@ double SSM15066Estimator::computeScalingFactor(const Eigen::VectorXd& q1, const 
   return scaling_factor;
 }
 
+void SSM15066Estimator::addObstaclePosition(const Eigen::Vector3d& obstacle_position)
+{
+  obstacles_positions_.conservativeResize(Eigen::NoChange, obstacles_positions_.cols()+1);
+
+  if(obstacle_position.rows()>1) // column vector
+    obstacles_positions_.col(obstacles_positions_.cols()-1) = obstacle_position;
+  else
+    obstacles_positions_.col(obstacles_positions_.cols()-1) = obstacle_position.transpose();  // make it a column vector
+}
+
 SSM15066EstimatorPtr SSM15066Estimator::clone()
 {
   SSM15066EstimatorPtr clone = std::make_shared<SSM15066Estimator>(rosdyn::createChain(chain_),max_step_size_,obstacles_positions_);
