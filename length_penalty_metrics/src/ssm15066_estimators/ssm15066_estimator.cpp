@@ -81,13 +81,13 @@ void SSM15066Estimator::setMaxStepSize(const double& max_step_size)
 
 double SSM15066Estimator::computeScalingFactor(const Eigen::VectorXd& q1, const Eigen::VectorXd& q2)
 {
-  double scaling_factor = 1.0;
+  if(obstacles_positions_.cols()==0)  //no obstacles in the scene
+    return 1.0;
 
-  if (obstacles_positions_.cols()==0)  //no obstacles in the scene
-    return scaling_factor;
+  double sum_scaling_factor = 0.0;
 
   Eigen::Vector3d distance_vector;
-  double distance, tangential_speed, tmp_scaling_factor, v_safety;
+  double distance, tangential_speed, scaling_factor, min_scaling_factor_of_q, v_safety;
   std::vector<Eigen::Affine3d, Eigen::aligned_allocator<Eigen::Affine3d>>  poi_poses_in_base;
   std::vector< Eigen::Vector6d, Eigen::aligned_allocator<Eigen::Vector6d>> poi_twist_in_base;
 
@@ -105,6 +105,8 @@ double SSM15066Estimator::computeScalingFactor(const Eigen::VectorXd& q1, const 
 
   for(unsigned int i=0;i<iter+1;i++)
   {
+    min_scaling_factor_of_q = 1.0;
+
     poi_poses_in_base = chain_->getTransformations(q);
     poi_twist_in_base = chain_->getTwist(q,dq);
 
@@ -122,28 +124,29 @@ double SSM15066Estimator::computeScalingFactor(const Eigen::VectorXd& q1, const 
 
         if(tangential_speed<=0)  // robot is going away
         {
-          tmp_scaling_factor = 1.0;
+          scaling_factor = 1.0;
         }
         else if(distance>min_distance_)
         {
-          v_safety=std::sqrt(term1_+2.0*max_cart_acc_*distance)-a_t_r_;  //NB: human velocity not considered for now
-          tmp_scaling_factor=v_safety/tangential_speed;                  // no division by 0
+          v_safety = std::sqrt(term1_+2.0*max_cart_acc_*distance)-a_t_r_;  //NB: human velocity not considered for now
+          scaling_factor = v_safety/tangential_speed;                  // no division by 0
         }
         else  // distance<=min_distance -> you have found the minimum scaling factor, return
         {
-          scaling_factor = 0.0;
-          return scaling_factor;
+          return 0.0;  //if one point q has 0.0 scaling factor, return it
         }
 
-        if(tmp_scaling_factor<scaling_factor)
-          scaling_factor = tmp_scaling_factor;
+        if(scaling_factor<min_scaling_factor_of_q)
+          min_scaling_factor_of_q = scaling_factor;
       }
     }
 
+    sum_scaling_factor += min_scaling_factor_of_q;
     q = q+delta_q;
   }
 
-  return scaling_factor;
+  // return the average scaling factor (if no q have zero scaling factor)
+  return sum_scaling_factor/(double (iter+1));
 }
 
 void SSM15066Estimator::addObstaclePosition(const Eigen::Vector3d& obstacle_position)

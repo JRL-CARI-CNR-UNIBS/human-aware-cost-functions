@@ -37,7 +37,7 @@ typedef std::shared_ptr<SSM15066Estimator> SSM15066EstimatorPtr;
 
 /**
   * @brief The SSM15066Estimator class is a template for safety related velocity scaling factor (SSM ISO-15066) estimator.
-  * The goal is to compute an approximation of the scaling factor that the robot will experiment moving from a
+  * The goal is to compute an approximation of the average scaling factor that the robot will experiment moving from a
   * configuration q1 to a configuration q2, given the obstacles positions (e.g., human's head, arms and torso positions)
   */
 class SSM15066Estimator
@@ -120,11 +120,11 @@ public:
   void addObstaclePosition(const Eigen::Vector3d& obstacle_position);
 
   /**
-   * @brief computeWorstCaseScalingFactor computes an approximation of the scaling factor the robot will experience travelling from
+   * @brief computeWorstCaseScalingFactor computes an approximation of the average scaling factor the robot will experience travelling from
    * q1 to q2, according to SSM ISO-15066. The maximum robot joints' velocities are considered for this computation.
    * @param q1.
    * @param q2.
-   * @return the scaling factor.
+   * @return 0 if a point q in (q1,q2) is associated with 0 scaling factor, the average scaling factor otherwise.
    */
   virtual double computeScalingFactor(const Eigen::VectorXd& q1, const Eigen::VectorXd& q2);
 

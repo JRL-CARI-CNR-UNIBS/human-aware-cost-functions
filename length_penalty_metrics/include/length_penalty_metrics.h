@@ -39,6 +39,9 @@ typedef std::shared_ptr<LengthPenaltyMetrics> LengthPenaltyMetricsPtr;
  * @brief The LengthPenaltyMetrics class computes the Euclidean distance between two nodes and penalizes
  * it based on an estimation on how much the robot would be slown down by the safety velocity scaling
  * unit, due to being close to an obstacle (e.g., human being) while crossing that connection.
+ * So, first it computes an approximation of the average scaling factor and then lambda is the inverse of it.
+ * Note that the exstimated average scaling factor is set to 0 if one q in (q1,q2) has 0 scaling factor; otherwise,
+ * an average along the q in (q1,q2) is computed.
  *
  *                            c(q1,q2) = ||q2-q1||*lambda,
  *
@@ -81,5 +84,4 @@ public:
   virtual MetricsPtr clone();
 
 };
-
 }

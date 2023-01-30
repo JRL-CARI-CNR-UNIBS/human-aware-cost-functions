@@ -28,6 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <mutex>
 #include <thread>
+#include <future>
 #include <Eigen/StdVector>
 #include <ssm15066_estimators/ssm15066_estimator.h>
 
@@ -37,9 +38,7 @@ class ParallelSSM15066Estimator;
 typedef std::shared_ptr<ParallelSSM15066Estimator> ParallelSSM15066EstimatorPtr;
 
 /**
-  * @brief The ParallelSSM15066Estimator class is a template for safety related velocity scaling factor (SSM ISO-15066) estimator.
-  * The goal is to compute an approximation of the scaling factor that the robot will experiment moving from a
-  * configuration q1 to a configuration q2, given the obstacles positions (e.g., human's head, arms and torso positions)
+  * @brief The ParallelSSM15066Estimator class is multithreads version of SSM15066Estimator class
   */
 class ParallelSSM15066Estimator: public SSM15066Estimator
 {
@@ -60,22 +59,16 @@ protected:
    * @brief These are class members related to threads management
    */
   bool stop_;
-  std::mutex mtx_;
   unsigned int n_threads_;
   std::vector<Queue> queues_;
   unsigned int running_threads_;
-  std::vector<std::thread> threads_;
   std::vector<rosdyn::ChainPtr> chains_;
+  std::vector<std::shared_future<double>> threads_;
 
   /**
    * @brief dq_max_ is the maximum joint velocity to move from q1 to q2.
    */
   Eigen::VectorXd dq_max_;
-
-  /**
-   * @brief scaling_factor_ is the reference scaling factor used to compare the scaling factors computed by the threads
-   */
-  double ref_scaling_factor_;
 
   /**
    * @brief init intiializes threds-related class members
@@ -91,16 +84,18 @@ protected:
    * @brief fillQueues fill queue_ with the robot configurations q belonging to (q1,q2) to evaluate
    * @param q1
    * @param q2
+   * @return the number of q in (q1,q2) to be processed
    */
-  void fillQueues(const Eigen::VectorXd& q1, const Eigen::VectorXd q2);
+  unsigned int fillQueues(const Eigen::VectorXd& q1, const Eigen::VectorXd q2);
 
   /**
-   * @brief computeScalingFactorThread computes an approximation of the scaling factor the robot will experience at configuration
+   * @brief computeScalingFactorAsync computes an approximation of the scaling factor the robot will experience at configuration
    * q, according to SSM ISO-15066. The maximum robot joints' velocities are considered for this computation. It takes q from queue_
    * @param idx_thread.
-   * @return the scaling factor.
+   * @return the sum of scaling factors of each q in queue idx_queue, 0.0 if a q is associated with zero scaling factor.
    */
-  void computeScalingFactorThread(const unsigned int& idx_thread);
+  double computeScalingFactorAsync(const unsigned int& idx_queue);
+
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -111,16 +106,20 @@ public:
                             const unsigned int& n_threads=DEFAULT_THREADS_NUMBER);
 
   /**
-   * @brief computeWorstCaseScalingFactor computes an approximation of the scaling factor the robot will experience travelling from
+   * @brief computeWorstCaseScalingFactor computes an approximation of the average scaling factor the robot will experience travelling from
    * q1 to q2, according to SSM ISO-15066. The maximum robot joints' velocities are considered for this computation.
-   * Ita speeds up the computation using multiple threads
+   * It speeds up the computation using multiple threads.
    * @param q1.
    * @param q2.
-   * @return the scaling factor.
+   * @return 0 if a point q in (q1,q2) is associated with 0 scaling factor, the average scaling factor otherwise.
    */
   double computeScalingFactor(const Eigen::VectorXd& q1, const Eigen::VectorXd& q2);
 
-  inline virtual SSM15066EstimatorPtr clone();
+  /**
+   * @brief clone creates a copy of the object
+   * @return the cloned object
+   */
+  virtual SSM15066EstimatorPtr clone();
 
 };
 
