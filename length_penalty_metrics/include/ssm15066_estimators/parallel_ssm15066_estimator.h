@@ -43,7 +43,6 @@ typedef std::shared_ptr<ParallelSSM15066Estimator> ParallelSSM15066EstimatorPtr;
 class ParallelSSM15066Estimator: public SSM15066Estimator
 {
 protected:
-#define DEFAULT_THREADS_NUMBER 5
 
   /**
    * @brief The Queue struct defines an makes more readable the queue struct used by each thread
@@ -99,11 +98,11 @@ protected:
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-  ParallelSSM15066Estimator(const rosdyn::ChainPtr &chain, const unsigned int& n_threads=DEFAULT_THREADS_NUMBER);
-  ParallelSSM15066Estimator(const rosdyn::ChainPtr &chain, const double& max_step_size, const unsigned int& n_threads=DEFAULT_THREADS_NUMBER);
+  ParallelSSM15066Estimator(const rosdyn::ChainPtr &chain, const unsigned int& n_threads=std::thread::hardware_concurrency());
+  ParallelSSM15066Estimator(const rosdyn::ChainPtr &chain, const double& max_step_size, const unsigned int& n_threads=std::thread::hardware_concurrency());
   ParallelSSM15066Estimator(const rosdyn::ChainPtr &chain, const double& max_step_size,
                             const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions,
-                            const unsigned int& n_threads=DEFAULT_THREADS_NUMBER);
+                            const unsigned int& n_threads=std::thread::hardware_concurrency());
 
   /**
    * @brief computeWorstCaseScalingFactor computes an approximation of the average scaling factor the robot will experience travelling from

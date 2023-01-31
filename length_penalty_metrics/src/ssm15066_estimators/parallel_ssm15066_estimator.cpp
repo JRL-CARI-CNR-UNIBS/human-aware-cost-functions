@@ -49,7 +49,12 @@ void ParallelSSM15066Estimator::init()
   running_threads_ = 0;
 
   if(n_threads_<=0)
-    n_threads_ = DEFAULT_THREADS_NUMBER;
+    n_threads_ = std::thread::hardware_concurrency();
+  else if(n_threads_>std::thread::hardware_concurrency())
+  {
+    ROS_ERROR_STREAM("number of threads ("<<n_threads_<<") should not be higher than hardware max concurrency ("<<std::thread::hardware_concurrency()<<")");
+    n_threads_ = std::thread::hardware_concurrency();
+  }
 
   queues_ .clear();
   chains_ .clear();
