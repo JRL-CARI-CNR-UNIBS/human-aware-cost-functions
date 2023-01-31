@@ -147,7 +147,7 @@ double ParallelSSM15066Estimator::computeScalingFactor(const Eigen::VectorXd& q1
 
   tic = ros::WallTime::now();
   for(unsigned int i=0;i<running_threads_;i++)
-    threads_[i] = std::async(&ParallelSSM15066Estimator::computeScalingFactorAsync,this,i);
+    threads_[i] = std::async(std::launch::async,&ParallelSSM15066Estimator::computeScalingFactorAsync,this,i);
   toc = ros::WallTime::now();
   time_thread = (toc-tic).toSec();
 
