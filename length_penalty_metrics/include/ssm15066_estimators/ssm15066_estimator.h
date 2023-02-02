@@ -50,9 +50,9 @@ protected:
   rosdyn::ChainPtr chain_;
 
   /**
-   * @brief obstacles_positions_: x,y,z (rows) of obstacles (cols). Number of cols depends on the number of obstacles present in the scene.
+   * @brief obstacles_positions_: matrix containing obstacles positions. x,y,z (rows) of obstacles (cols). Number of cols depends on the number of obstacles present in the scene.
    */
-  Eigen::Matrix<double,3,Eigen::Dynamic> obstacles_positions_;
+  Eigen::Matrix <double,3,Eigen::Dynamic> obstacles_positions_;
 
   /**
    * @brief inv_max_speed_ is the inverse of the max joints speed.
@@ -94,24 +94,27 @@ protected:
    */
   double max_cart_acc_;
 
-  /**
-   * @brief self_distance_
-   */
-  double self_distance_;
-
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   SSM15066Estimator(const rosdyn::ChainPtr &chain, const double& max_step_size=0.05);
   SSM15066Estimator(const rosdyn::ChainPtr &chain, const double& max_step_size,
                     const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions);
 
+  SSM15066Estimator(const urdf::ModelInterfaceSharedPtr &model, const std::string& base_frame, const std::string& tool_frame, const double& max_step_size=0.05);
+
+
   void updateMembers();
   void setMaxStepSize(const double& max_step_size);
   void setReactionTime(const double& t_r){t_r_ = t_r;}
   void setMaxCartAcc(const double& max_cart_acc){max_cart_acc_ = max_cart_acc;}
   void setMinDistance(const double& min_distance){min_distance_ = min_distance;}
-  void setSelfDistance(const double& self_distance){self_distance_ = self_distance;}
   void setObstaclesPositions(const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions){obstacles_positions_ = obstacles_positions;}
+
+  /**
+   * @brief getObstaclePosition return the obstacles positions matrix
+   * @return the matrix
+   */
+  Eigen::Matrix<double,3,Eigen::Dynamic> getObstaclesPositions(){return obstacles_positions_;}
 
   /**
    * @brief addObstaclePosition adds an obstacle to the already existing obstacle matrix.

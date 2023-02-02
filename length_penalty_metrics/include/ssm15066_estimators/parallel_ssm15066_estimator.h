@@ -26,11 +26,9 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <mutex>
-#include <thread>
-#include <future>
 #include <Eigen/StdVector>
 #include <ssm15066_estimators/ssm15066_estimator.h>
+#include <thread-pool/BS_thread_pool.hpp>  //Credit: Barak Shoshany https://github.com/bshoshany/thread-pool.git
 
 namespace ssm15066_estimator
 {
@@ -38,7 +36,8 @@ class ParallelSSM15066Estimator;
 typedef std::shared_ptr<ParallelSSM15066Estimator> ParallelSSM15066EstimatorPtr;
 
 /**
-  * @brief The ParallelSSM15066Estimator class is multithreads version of SSM15066Estimator class
+  * @brief The ParallelSSM15066Estimator class is multithreads version of SSM15066Estimator class.
+  * It uses the thread pool of Barak Shoshany (https://github.com/bshoshany/thread-pool.git) to avoid to launch and destroy threads continuously.
   */
 class ParallelSSM15066Estimator: public SSM15066Estimator
 {
@@ -50,6 +49,7 @@ protected:
   struct Queue
   {
     std::vector<Eigen::VectorXd, Eigen::aligned_allocator<Eigen::VectorXd> > queue_; //don't remove spaces
+
     void reset(){queue_.clear();}
     void insert(const Eigen::VectorXd& q){queue_.push_back(q);}
   };
@@ -62,7 +62,12 @@ protected:
   std::vector<Queue> queues_;
   unsigned int running_threads_;
   std::vector<rosdyn::ChainPtr> chains_;
-  std::vector<std::shared_future<double>> threads_;
+  std::vector<std::shared_future<double>> futures_;
+
+  /**
+   * @brief pool_ manages the threads pool.
+   */
+  std::shared_ptr<BS::thread_pool> pool_;
 
   /**
    * @brief dq_max_ is the maximum joint velocity to move from q1 to q2.
@@ -95,7 +100,6 @@ protected:
    */
   double computeScalingFactorAsync(const unsigned int& idx_queue);
 
-
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   ParallelSSM15066Estimator(const rosdyn::ChainPtr &chain, const unsigned int& n_threads=std::thread::hardware_concurrency());
@@ -103,6 +107,14 @@ public:
   ParallelSSM15066Estimator(const rosdyn::ChainPtr &chain, const double& max_step_size,
                             const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions,
                             const unsigned int& n_threads=std::thread::hardware_concurrency());
+  ParallelSSM15066Estimator(const urdf::ModelInterfaceSharedPtr &model, const std::string& base_frame, const std::string& tool_frame,
+                            const double& max_step_size, const unsigned int& n_threads=std::thread::hardware_concurrency());
+
+//  ~ParallelSSM15066Estimator()
+//  {
+//    stop_ = true;
+//    pool_->wait_for_tasks();
+//  }
 
   /**
    * @brief computeWorstCaseScalingFactor computes an approximation of the average scaling factor the robot will experience travelling from

@@ -16,6 +16,7 @@
   <depend>graph_core</depend>
   <depend>velocity_scaling_iso15066</depend>
   <depend>rosdyn_core</depend>
+  <depend>thread-pool</depend>
 
   <export>
 
