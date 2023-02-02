@@ -47,6 +47,10 @@ ParallelSSM15066Estimator::ParallelSSM15066Estimator(const rosdyn::ChainPtr &cha
 ParallelSSM15066Estimator::ParallelSSM15066Estimator(const urdf::ModelInterfaceSharedPtr &model, const std::string& base_frame, const std::string& tool_frame, const double& max_step_size, const unsigned int& n_threads):
   SSM15066Estimator(model,base_frame,tool_frame,max_step_size),n_threads_(n_threads)
 {
+
+  //*************************       THIS ONE WORKS WITH CHAINS IN PARALLEL THREADS        *************************************//
+
+  verbose_ = 0;
   stop_ = true;
   running_threads_ = 0;
 
@@ -78,6 +82,10 @@ ParallelSSM15066Estimator::ParallelSSM15066Estimator(const urdf::ModelInterfaceS
 
 void ParallelSSM15066Estimator::init()
 {
+  //*************************       THIS ONE DOES NOT WORK WITH CHAINS IN PARALLEL THREADS        *************************************//
+
+
+  verbose_ = 0;
   stop_ = true;
   running_threads_ = 0;
 
@@ -221,17 +229,17 @@ double ParallelSSM15066Estimator::computeScalingFactor(const Eigen::VectorXd& q1
   time_join = (toc-tic).toSec();
   time_tot = (toc-tic_init).toSec();
 
-//  ROS_INFO_STREAM("time reset queues "<<(time_reset/time_tot)*100<<"% || time fill queues "<<(time_fill/time_tot)*100<<"% || time threads creation "<<(time_thread/time_tot)*100<<"% || time executions "<<(time_join/time_tot)*100<<"%");
+  //  ROS_INFO_STREAM("time reset queues "<<(time_reset/time_tot)*100<<"% || time fill queues "<<(time_fill/time_tot)*100<<"% || time threads creation "<<(time_thread/time_tot)*100<<"% || time executions "<<(time_join/time_tot)*100<<"%");
 
   return (sum_scaling_factors/((double) n_addends));
 }
 
 double ParallelSSM15066Estimator::computeScalingFactorAsync(const unsigned int& idx_queue)
 {
-  Eigen::Vector3d distance_vector;
-  std::vector<Eigen::Vector6d, Eigen::aligned_allocator<Eigen::Vector6d>> poi_twist_in_base;
-  std::vector<Eigen::Affine3d, Eigen::aligned_allocator<Eigen::Affine3d>> poi_poses_in_base;
-  double distance, tangential_speed, v_safety, scaling_factor, min_scaling_factor_of_q, sum_scaling_factor;
+  Eigen::Vector3d distance_vector, tmp_distance_vector;
+  std::vector<Eigen::Affine3d, Eigen::aligned_allocator<Eigen::Affine3d>> poi_poses_in_base, tmp_pose;
+  std::vector<Eigen::Vector6d, Eigen::aligned_allocator<Eigen::Vector6d>> poi_twist_in_base, tmp_twist;
+  double distance, tangential_speed, v_safety, scaling_factor, min_scaling_factor_of_q, sum_scaling_factor, tmp_speed;
 
   rosdyn::ChainPtr chain = chains_[idx_queue];
 
@@ -274,7 +282,13 @@ double ParallelSSM15066Estimator::computeScalingFactorAsync(const unsigned int& 
         }
 
         if(scaling_factor<min_scaling_factor_of_q)
+        {
           min_scaling_factor_of_q = scaling_factor;
+          tmp_distance_vector = distance_vector;
+          tmp_speed = tangential_speed;
+          tmp_pose = poi_poses_in_base;
+          tmp_twist = poi_twist_in_base;
+        }
 
         if(stop_)
           break;
@@ -283,10 +297,22 @@ double ParallelSSM15066Estimator::computeScalingFactorAsync(const unsigned int& 
         break;
     } // end obstacles for
 
-    //    //    ROS_INFO_STREAM("q "<<q.transpose()<<" obj "<<tmp_obj.transpose()<<" poi "<<tmp_poi.transpose()<<" cost "<<min_scaling_factor_of_q);
-    //    ROS_INFO_STREAM("q "<<q.transpose()<<" i_poi "<<tmp_i_poi<<" poi "<<tmp_poi.transpose()<<" cost "<<min_scaling_factor_of_q);
-    //    for(auto poi:poi_poses_in_base)
-    //      ROS_INFO_STREAM("poi poses \n"<<poi.matrix());
+    if(verbose_>0)
+    {
+      mtx_.lock();
+      ROS_INFO_STREAM("q "<<q.transpose()<<" || dist vector: "<<tmp_distance_vector.transpose()<<" || tangential speed: "<<tmp_speed<<
+                      " || scaling factor at q: "<<min_scaling_factor_of_q);
+
+      if(verbose_ == 2)
+      {
+        for(Eigen::Affine3d p:poi_poses_in_base)
+          ROS_INFO_STREAM("POI poses \n"<<p.matrix());
+
+        for(Eigen::Vector6d t:tmp_twist)
+          ROS_INFO_STREAM("POI twists "<<t.transpose());
+      }
+      mtx_.unlock();
+    }
 
     sum_scaling_factor += min_scaling_factor_of_q;
 

@@ -64,6 +64,8 @@ protected:
   std::vector<rosdyn::ChainPtr> chains_;
   std::vector<std::shared_future<double>> futures_;
 
+  std::mutex mtx_;
+
   /**
    * @brief pool_ manages the threads pool.
    */
@@ -109,12 +111,6 @@ public:
                             const unsigned int& n_threads=std::thread::hardware_concurrency());
   ParallelSSM15066Estimator(const urdf::ModelInterfaceSharedPtr &model, const std::string& base_frame, const std::string& tool_frame,
                             const double& max_step_size, const unsigned int& n_threads=std::thread::hardware_concurrency());
-
-//  ~ParallelSSM15066Estimator()
-//  {
-//    stop_ = true;
-//    pool_->wait_for_tasks();
-//  }
 
   /**
    * @brief computeWorstCaseScalingFactor computes an approximation of the average scaling factor the robot will experience travelling from

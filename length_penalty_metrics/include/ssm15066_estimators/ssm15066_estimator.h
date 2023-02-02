@@ -94,6 +94,11 @@ protected:
    */
   double max_cart_acc_;
 
+  /**
+   * @brief verbose_ defines thelevel of  verbosity
+   */
+  unsigned int verbose_;
+
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   SSM15066Estimator(const rosdyn::ChainPtr &chain, const double& max_step_size=0.05);
@@ -106,6 +111,7 @@ public:
   void updateMembers();
   void setMaxStepSize(const double& max_step_size);
   void setReactionTime(const double& t_r){t_r_ = t_r;}
+  void setVerbose(const unsigned int& verbose){verbose_ = verbose;}
   void setMaxCartAcc(const double& max_cart_acc){max_cart_acc_ = max_cart_acc;}
   void setMinDistance(const double& min_distance){min_distance_ = min_distance;}
   void setObstaclesPositions(const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions){obstacles_positions_ = obstacles_positions;}

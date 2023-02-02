@@ -42,6 +42,8 @@ SSM15066Estimator::SSM15066Estimator(const rosdyn::ChainPtr &chain, const double
   t_r_           = 0.15;
 
   updateMembers();
+
+  verbose_ = 0;
 }
 
 SSM15066Estimator::SSM15066Estimator(const rosdyn::ChainPtr &chain, const double &max_step_size, const Eigen::Matrix<double,3,Eigen::Dynamic> &obstacles_positions):
@@ -56,6 +58,8 @@ SSM15066Estimator::SSM15066Estimator(const rosdyn::ChainPtr &chain, const double
   t_r_            = 0.15;
 
   updateMembers();
+
+  verbose_ = 0;
 }
 
 SSM15066Estimator::SSM15066Estimator(const urdf::ModelInterfaceSharedPtr &model, const std::string& base_frame, const std::string& tool_frame, const double& max_step_size)
@@ -73,6 +77,7 @@ SSM15066Estimator::SSM15066Estimator(const urdf::ModelInterfaceSharedPtr &model,
 
   updateMembers();
 
+  verbose_ = 0;
 }
 
 void SSM15066Estimator::updateMembers()
@@ -98,10 +103,10 @@ double SSM15066Estimator::computeScalingFactor(const Eigen::VectorXd& q1, const 
 
   double sum_scaling_factor = 0.0;
 
-  Eigen::Vector3d distance_vector;
-  double distance, tangential_speed, scaling_factor, min_scaling_factor_of_q, v_safety;
-  std::vector<Eigen::Affine3d, Eigen::aligned_allocator<Eigen::Affine3d>>  poi_poses_in_base;
-  std::vector< Eigen::Vector6d, Eigen::aligned_allocator<Eigen::Vector6d>> poi_twist_in_base;
+  Eigen::Vector3d distance_vector, tmp_distance_vector;
+  double distance, tangential_speed, scaling_factor, min_scaling_factor_of_q, v_safety, tmp_speed;
+  std::vector<Eigen::Affine3d, Eigen::aligned_allocator<Eigen::Affine3d>>  poi_poses_in_base, tmp_pose;
+  std::vector< Eigen::Vector6d, Eigen::aligned_allocator<Eigen::Vector6d>> poi_twist_in_base, tmp_twist;
 
   /* Compute the time of each joint to move from q1 to q2 at its maximum speed and consider the longest time */
   double slowest_joint_time = (inv_max_speed_.cwiseProduct(q2 - q1)).cwiseAbs().maxCoeff();
@@ -151,14 +156,30 @@ double SSM15066Estimator::computeScalingFactor(const Eigen::VectorXd& q1, const 
         }
 
         if(scaling_factor<min_scaling_factor_of_q)
+        {
           min_scaling_factor_of_q = scaling_factor;
+          tmp_distance_vector = distance_vector;
+          tmp_speed = tangential_speed;
+          tmp_pose = poi_poses_in_base;
+          tmp_twist = poi_twist_in_base;
+        }
       } // end robot poi for
     } // end obstacles for
 
-    //    ROS_ERROR_STREAM("q "<<q.transpose()<<" obj "<<tmp_obj.transpose()<<" poi "<<tmp_poi.transpose()<<" cost "<<min_scaling_factor_of_q);
-//    ROS_ERROR_STREAM("q "<<q.transpose()<<" i_poi "<<tmp_i_poi<<" poi "<<tmp_poi.transpose()<<" cost "<<min_scaling_factor_of_q);
-//    for(auto poi:poi_poses_in_base)
-//      ROS_ERROR_STREAM("poi poses \n"<<poi.matrix());
+    if(verbose_>0)
+    {
+      ROS_ERROR_STREAM("q "<<q.transpose()<<" || dist vector: "<<tmp_distance_vector.transpose()<<" || tangential speed: "<<tmp_speed<<
+                       " || scaling factor at q: "<<min_scaling_factor_of_q);
+
+      if(verbose_ ==2 )
+      {
+        for(Eigen::Affine3d p:tmp_pose)
+          ROS_ERROR_STREAM("POI poses \n"<<p.matrix());
+
+        for(Eigen::Vector6d t:tmp_twist)
+          ROS_ERROR_STREAM("POI twists "<<t.transpose());
+      }
+    }
 
     sum_scaling_factor += min_scaling_factor_of_q;
   }
