@@ -105,9 +105,6 @@ public:
   SSM15066Estimator(const rosdyn::ChainPtr &chain, const double& max_step_size,
                     const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions);
 
-  SSM15066Estimator(const urdf::ModelInterfaceSharedPtr &model, const std::string& base_frame, const std::string& tool_frame, const double& max_step_size=0.05);
-
-
   void updateMembers();
   void setMaxStepSize(const double& max_step_size);
   void setReactionTime(const double& t_r){t_r_ = t_r;}

@@ -109,8 +109,6 @@ public:
   ParallelSSM15066Estimator(const rosdyn::ChainPtr &chain, const double& max_step_size,
                             const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions,
                             const unsigned int& n_threads=std::thread::hardware_concurrency());
-  ParallelSSM15066Estimator(const urdf::ModelInterfaceSharedPtr &model, const std::string& base_frame, const std::string& tool_frame,
-                            const double& max_step_size, const unsigned int& n_threads=std::thread::hardware_concurrency());
 
   /**
    * @brief computeWorstCaseScalingFactor computes an approximation of the average scaling factor the robot will experience travelling from

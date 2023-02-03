@@ -62,24 +62,6 @@ SSM15066Estimator::SSM15066Estimator(const rosdyn::ChainPtr &chain, const double
   verbose_ = 0;
 }
 
-SSM15066Estimator::SSM15066Estimator(const urdf::ModelInterfaceSharedPtr &model, const std::string& base_frame, const std::string& tool_frame, const double& max_step_size)
-{
-  Eigen::Vector3d grav; grav << 0, 0, -9.806;
-  chain_ = rosdyn::createChain(*model,base_frame,tool_frame,grav);
-
-  setMaxStepSize(max_step_size);
-
-  inv_max_speed_ = chain_->getDQMax().cwiseInverse();
-
-  min_distance_  = 0.30;
-  max_cart_acc_  = 0.10;
-  t_r_           = 0.15;
-
-  updateMembers();
-
-  verbose_ = 0;
-}
-
 void SSM15066Estimator::updateMembers()
 {
   a_t_r_ = max_cart_acc_*t_r_;
@@ -158,10 +140,14 @@ double SSM15066Estimator::computeScalingFactor(const Eigen::VectorXd& q1, const 
         if(scaling_factor<min_scaling_factor_of_q)
         {
           min_scaling_factor_of_q = scaling_factor;
-          tmp_distance_vector = distance_vector;
-          tmp_speed = tangential_speed;
-          tmp_pose = poi_poses_in_base;
-          tmp_twist = poi_twist_in_base;
+
+          if(verbose_>0)
+          {
+            tmp_distance_vector = distance_vector;
+            tmp_speed = tangential_speed;
+            tmp_pose = poi_poses_in_base;
+            tmp_twist = poi_twist_in_base;
+          }
         }
       } // end robot poi for
     } // end obstacles for

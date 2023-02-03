@@ -44,47 +44,8 @@ ParallelSSM15066Estimator::ParallelSSM15066Estimator(const rosdyn::ChainPtr &cha
   SSM15066Estimator(chain,max_step_size,obstacles_positions),n_threads_(n_threads){init();}
 
 
-ParallelSSM15066Estimator::ParallelSSM15066Estimator(const urdf::ModelInterfaceSharedPtr &model, const std::string& base_frame, const std::string& tool_frame, const double& max_step_size, const unsigned int& n_threads):
-  SSM15066Estimator(model,base_frame,tool_frame,max_step_size),n_threads_(n_threads)
-{
-
-  //*************************       THIS ONE WORKS WITH CHAINS IN PARALLEL THREADS        *************************************//
-
-  verbose_ = 0;
-  stop_ = true;
-  running_threads_ = 0;
-
-  if(n_threads_<=0)
-    n_threads_ = std::thread::hardware_concurrency();
-  else if(n_threads_>std::thread::hardware_concurrency())
-  {
-    ROS_ERROR_STREAM("number of threads ("<<n_threads_<<") should not be higher than hardware max concurrency ("<<std::thread::hardware_concurrency()<<")");
-    n_threads_ = std::thread::hardware_concurrency();
-  }
-
-  queues_ .clear();
-  chains_ .clear();
-  futures_.clear();
-
-  queues_ .resize(n_threads_);
-  futures_.resize(n_threads_);
-
-  Eigen::Vector3d grav; grav << 0, 0, -9.806;
-
-  for(unsigned int i=0;i<n_threads_;i++)
-  {
-    chains_.push_back(rosdyn::createChain(*model,base_frame,tool_frame,grav));
-    queues_.push_back(Queue());
-  }
-
-  pool_ = std::make_shared<BS::thread_pool>(n_threads_);
-}
-
 void ParallelSSM15066Estimator::init()
 {
-  //*************************       THIS ONE DOES NOT WORK WITH CHAINS IN PARALLEL THREADS        *************************************//
-
-
   verbose_ = 0;
   stop_ = true;
   running_threads_ = 0;
@@ -106,7 +67,7 @@ void ParallelSSM15066Estimator::init()
 
   for(unsigned int i=0;i<n_threads_;i++)
   {
-    chains_.push_back(rosdyn::createChain(chain_));
+    chains_.push_back(chain_->clone());
     queues_.push_back(Queue());
   }
 
@@ -284,10 +245,14 @@ double ParallelSSM15066Estimator::computeScalingFactorAsync(const unsigned int& 
         if(scaling_factor<min_scaling_factor_of_q)
         {
           min_scaling_factor_of_q = scaling_factor;
-          tmp_distance_vector = distance_vector;
-          tmp_speed = tangential_speed;
-          tmp_pose = poi_poses_in_base;
-          tmp_twist = poi_twist_in_base;
+
+          if(verbose_>0)
+          {
+            tmp_distance_vector = distance_vector;
+            tmp_speed = tangential_speed;
+            tmp_pose = poi_poses_in_base;
+            tmp_twist = poi_twist_in_base;
+          }
         }
 
         if(stop_)
