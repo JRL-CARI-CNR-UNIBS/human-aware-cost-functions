@@ -216,6 +216,10 @@ double ParallelSSM15066Estimator::computeScalingFactorAsync(const unsigned int& 
     {
       for(size_t i_poi=0;i_poi<poi_poses_in_base.size();i_poi++)
       {
+        //consider only links inside the poi_names_ list
+        if(std::find(poi_names_.begin(),poi_names_.end(),links_names_[i_poi])>=poi_names_.end())
+          continue;
+
         distance_vector = obstacles_positions_.col(i_obs)-poi_poses_in_base.at(i_poi).translation();
         distance = distance_vector.norm();
 
@@ -290,7 +294,7 @@ double ParallelSSM15066Estimator::computeScalingFactorAsync(const unsigned int& 
 
 SSM15066EstimatorPtr ParallelSSM15066Estimator::clone()
 {
-  ParallelSSM15066EstimatorPtr clone = std::make_shared<ParallelSSM15066Estimator>(rosdyn::createChain(chain_),max_step_size_,obstacles_positions_,n_threads_);
+  ParallelSSM15066EstimatorPtr clone = std::make_shared<ParallelSSM15066Estimator>(chain_->clone(),max_step_size_,obstacles_positions_,n_threads_);
 
   clone->setMaxCartAcc(max_cart_acc_);
   clone->setMinDistance(min_distance_);

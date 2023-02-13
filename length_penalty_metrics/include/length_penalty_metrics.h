@@ -68,6 +68,16 @@ public:
     ssm15066_estimator_->addObstaclePosition(obstacle_position);
   }
 
+  void setPoiNames(const std::vector<std::string>& poi_names)
+  {
+    ssm15066_estimator_->setPoiNames(poi_names);
+  }
+
+  ssm15066_estimator::SSM15066EstimatorPtr getSSM()
+  {
+    return ssm15066_estimator_;
+  }
+
   virtual double cost(const NodePtr& node1,
                       const NodePtr& node2);
 

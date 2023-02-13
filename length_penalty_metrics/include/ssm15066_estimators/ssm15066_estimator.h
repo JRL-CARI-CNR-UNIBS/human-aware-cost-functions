@@ -50,6 +50,16 @@ protected:
   rosdyn::ChainPtr chain_;
 
   /**
+   * @brief poi_names_ is a vector containing the names of the points of interest of the robot structure.
+   */
+  std::vector<std::string> poi_names_;
+
+  /**
+   * @brief links_names_ is a vector of the names of all the links of the robot.
+   */
+  std::vector<std::string> links_names_;
+
+  /**
    * @brief obstacles_positions_: matrix containing obstacles positions. x,y,z (rows) of obstacles (cols). Number of cols depends on the number of obstacles present in the scene.
    */
   Eigen::Matrix <double,3,Eigen::Dynamic> obstacles_positions_;
@@ -111,6 +121,7 @@ public:
   void setVerbose(const unsigned int& verbose){verbose_ = verbose;}
   void setMaxCartAcc(const double& max_cart_acc){max_cart_acc_ = max_cart_acc;}
   void setMinDistance(const double& min_distance){min_distance_ = min_distance;}
+  void setPoiNames(const std::vector<std::string> poi_names){poi_names_ = poi_names;}
   void setObstaclesPositions(const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions){obstacles_positions_ = obstacles_positions;}
 
   /**

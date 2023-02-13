@@ -43,6 +43,9 @@ SSM15066Estimator::SSM15066Estimator(const rosdyn::ChainPtr &chain, const double
 
   updateMembers();
 
+  links_names_ = chain_->getLinksName();
+  poi_names_ = links_names_;
+
   verbose_ = 0;
 }
 
@@ -58,6 +61,9 @@ SSM15066Estimator::SSM15066Estimator(const rosdyn::ChainPtr &chain, const double
   t_r_            = 0.15;
 
   updateMembers();
+
+  links_names_ = chain_->getLinksName();
+  poi_names_ = links_names_;
 
   verbose_ = 0;
 }
@@ -111,10 +117,14 @@ double SSM15066Estimator::computeScalingFactor(const Eigen::VectorXd& q1, const 
     poi_twist_in_base = chain_->getTwist(q,dq);
     poi_poses_in_base = chain_->getTransformations(q);
 
-    for (Eigen::Index i_obs=0;i_obs<obstacles_positions_.cols();i_obs++)
+    for(Eigen::Index i_obs=0;i_obs<obstacles_positions_.cols();i_obs++)
     {
-      for (size_t i_poi=0;i_poi<poi_poses_in_base.size();i_poi++)
+      for(size_t i_poi=0;i_poi<poi_poses_in_base.size();i_poi++)
       {
+        //consider only links inside the poi_names_ list
+        if(std::find(poi_names_.begin(),poi_names_.end(),links_names_[i_poi])>=poi_names_.end())
+          continue;
+
         distance_vector = obstacles_positions_.col(i_obs)-poi_poses_in_base.at(i_poi).translation();
         distance = distance_vector.norm();
 
@@ -187,7 +197,7 @@ void SSM15066Estimator::addObstaclePosition(const Eigen::Vector3d& obstacle_posi
 
 SSM15066EstimatorPtr SSM15066Estimator::clone()
 {
-  SSM15066EstimatorPtr clone = std::make_shared<SSM15066Estimator>(rosdyn::createChain(chain_),max_step_size_,obstacles_positions_);
+  SSM15066EstimatorPtr clone = std::make_shared<SSM15066Estimator>(chain_->clone(),max_step_size_,obstacles_positions_);
 
   clone->setMaxCartAcc(max_cart_acc_);
   clone->setMinDistance(min_distance_);
