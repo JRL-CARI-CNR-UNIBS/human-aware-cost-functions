@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2019, Cesare Tonola University of Brescia c.tonola001@unibs.it
+Copyright (c) 2023, Cesare Tonola University of Brescia c.tonola001@unibs.it
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -37,9 +37,10 @@ SSM15066Estimator::SSM15066Estimator(const rosdyn::ChainPtr &chain, const double
 
   inv_max_speed_ = chain_->getDQMax().cwiseInverse();
 
-  min_distance_  = 0.30;
-  max_cart_acc_  = 0.10;
-  t_r_           = 0.15;
+  min_distance_   = 0.15;
+  max_cart_acc_   = 2.50;
+  reaction_time_  = 0.15;
+  human_velocity_ = 1.60; // from safety standards
 
   updateMembers();
 
@@ -56,9 +57,10 @@ SSM15066Estimator::SSM15066Estimator(const rosdyn::ChainPtr &chain, const double
 
   inv_max_speed_ = chain_->getDQMax().cwiseInverse();
 
-  min_distance_   = 0.30;
-  max_cart_acc_   = 0.10;
-  t_r_            = 0.15;
+  min_distance_   = 0.15;
+  max_cart_acc_   = 2.50;
+  reaction_time_  = 0.15;
+  human_velocity_ = 1.60; // from safety standards
 
   updateMembers();
 
@@ -70,8 +72,9 @@ SSM15066Estimator::SSM15066Estimator(const rosdyn::ChainPtr &chain, const double
 
 void SSM15066Estimator::updateMembers()
 {
-  a_t_r_ = max_cart_acc_*t_r_;
-  term1_=std::pow(a_t_r_,2)-2*max_cart_acc_*min_distance_;
+  double a_tr = max_cart_acc_*reaction_time_;
+  term1_ = std::pow(human_velocity_,2.0)+std::pow(a_tr,2.0)-2.0*max_cart_acc_*min_distance_;
+  term2_ = -a_tr-human_velocity_;
 }
 
 void SSM15066Estimator::setMaxStepSize(const double& max_step_size)
@@ -84,107 +87,6 @@ void SSM15066Estimator::setMaxStepSize(const double& max_step_size)
   }
 }
 
-double SSM15066Estimator::computeScalingFactor(const Eigen::VectorXd& q1, const Eigen::VectorXd& q2)
-{
-  if(obstacles_positions_.cols()==0)  //no obstacles in the scene
-    return 1.0;
-
-  double sum_scaling_factor = 0.0;
-
-  Eigen::Vector3d distance_vector, tmp_distance_vector;
-  double distance, tangential_speed, scaling_factor, min_scaling_factor_of_q, v_safety, tmp_speed;
-  std::vector<Eigen::Affine3d, Eigen::aligned_allocator<Eigen::Affine3d>>  poi_poses_in_base, tmp_pose;
-  std::vector< Eigen::Vector6d, Eigen::aligned_allocator<Eigen::Vector6d>> poi_twist_in_base, tmp_twist;
-
-  /* Compute the time of each joint to move from q1 to q2 at its maximum speed and consider the longest time */
-  double slowest_joint_time = (inv_max_speed_.cwiseProduct(q2 - q1)).cwiseAbs().maxCoeff();
-
-  /* The "slowest" joint will move at its highest speed while the other ones will
-   * move at (t_i/slowest_joint_time)*max_speed_i, where slowest_joint_time >= t_i */
-  Eigen::VectorXd dq = (q2-q1)/slowest_joint_time;
-
-  unsigned int iter = std::ceil((q2-q1).norm()/max_step_size_);
-
-  Eigen::VectorXd q;
-  Eigen::VectorXd delta_q = (q2-q1)/iter;
-
-  for(unsigned int i=0;i<iter+1;i++)
-  {
-    q = q1+i*delta_q;
-
-    min_scaling_factor_of_q = 1.0;
-
-    poi_twist_in_base = chain_->getTwist(q,dq);
-    poi_poses_in_base = chain_->getTransformations(q);
-
-    for(Eigen::Index i_obs=0;i_obs<obstacles_positions_.cols();i_obs++)
-    {
-      for(size_t i_poi=0;i_poi<poi_poses_in_base.size();i_poi++)
-      {
-        //consider only links inside the poi_names_ list
-        if(std::find(poi_names_.begin(),poi_names_.end(),links_names_[i_poi])>=poi_names_.end())
-          continue;
-
-        distance_vector = obstacles_positions_.col(i_obs)-poi_poses_in_base.at(i_poi).translation();
-        distance = distance_vector.norm();
-
-        tangential_speed = ((poi_twist_in_base.at(i_poi).block(0,0,3,1)).dot(distance_vector))/distance;
-
-        if(tangential_speed<=0)  // robot is going away
-        {
-          scaling_factor = 1.0;
-        }
-        else if(distance>min_distance_)
-        {
-          v_safety = std::sqrt(term1_+2.0*max_cart_acc_*distance)-a_t_r_;  //NB: human velocity not considered for now
-          scaling_factor = v_safety/tangential_speed;                      // no division by 0
-
-          if(scaling_factor < 1e-02)
-            return 0.0;
-        }
-        else  // distance<=min_distance -> you have found the minimum scaling factor, return
-        {
-          return 0.0;  //if one point q has 0.0 scaling factor, return it
-        }
-
-        if(scaling_factor<min_scaling_factor_of_q)
-        {
-          min_scaling_factor_of_q = scaling_factor;
-
-          if(verbose_>0)
-          {
-            tmp_distance_vector = distance_vector;
-            tmp_speed = tangential_speed;
-            tmp_pose = poi_poses_in_base;
-            tmp_twist = poi_twist_in_base;
-          }
-        }
-      } // end robot poi for
-    } // end obstacles for
-
-    if(verbose_>0)
-    {
-      ROS_ERROR_STREAM("q "<<q.transpose()<<" || dist vector: "<<tmp_distance_vector.transpose()<<" || tangential speed: "<<tmp_speed<<
-                       " || scaling factor at q: "<<min_scaling_factor_of_q);
-
-      if(verbose_ ==2 )
-      {
-        for(Eigen::Affine3d p:tmp_pose)
-          ROS_ERROR_STREAM("POI poses \n"<<p.matrix());
-
-        for(Eigen::Vector6d t:tmp_twist)
-          ROS_ERROR_STREAM("POI twists "<<t.transpose());
-      }
-    }
-
-    sum_scaling_factor += min_scaling_factor_of_q;
-  }
-  assert((q2-q).norm()<1e-08);
-
-  // return the average scaling factor (if no q have zero scaling factor)
-  return sum_scaling_factor/((double) iter+1);
-}
-
 void SSM15066Estimator::addObstaclePosition(const Eigen::Vector3d& obstacle_position)
 {
   obstacles_positions_.conservativeResize(Eigen::NoChange, obstacles_positions_.cols()+1);
@@ -194,19 +96,4 @@ void SSM15066Estimator::addObstaclePosition(const Eigen::Vector3d& obstacle_posi
   else
     obstacles_positions_.col(obstacles_positions_.cols()-1) = obstacle_position.transpose();  // make it a column vector
 }
-
-SSM15066EstimatorPtr SSM15066Estimator::clone()
-{
-  SSM15066EstimatorPtr clone = std::make_shared<SSM15066Estimator>(chain_->clone(),max_step_size_,obstacles_positions_);
-
-  clone->setMaxCartAcc(max_cart_acc_);
-  clone->setMinDistance(min_distance_);
-  clone->setMaxStepSize(max_step_size_);
-
-  clone->updateMembers();
-
-  return clone;
-}
-
-
 }

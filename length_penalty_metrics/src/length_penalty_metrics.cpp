@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2019, Cesare Tonola University of Brescia c.tonola001@unibs.it
+Copyright (c) 2023, Cesare Tonola University of Brescia c.tonola001@unibs.it
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -30,10 +30,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 namespace pathplan
 {
-
-LengthPenaltyMetrics::LengthPenaltyMetrics():
-  Metrics(),ssm15066_estimator_(nullptr){}
-
 LengthPenaltyMetrics::LengthPenaltyMetrics(const ssm15066_estimator::SSM15066EstimatorPtr &ssm15066_estimator):
   Metrics(),ssm15066_estimator_(ssm15066_estimator){}
 

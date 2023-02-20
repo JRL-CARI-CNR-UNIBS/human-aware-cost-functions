@@ -27,19 +27,19 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <Eigen/StdVector>
-#include <ssm15066_estimators/ssm15066_estimator.h>
+#include <ssm15066_estimators/ssm15066_estimator2D.h>
 #include <thread-pool/BS_thread_pool.hpp>  //Credit: Barak Shoshany https://github.com/bshoshany/thread-pool.git
 
 namespace ssm15066_estimator
 {
-class ParallelSSM15066Estimator;
-typedef std::shared_ptr<ParallelSSM15066Estimator> ParallelSSM15066EstimatorPtr;
+class ParallelSSM15066Estimator2D;
+typedef std::shared_ptr<ParallelSSM15066Estimator2D> ParallelSSM15066Estimator2DPtr;
 
 /**
-  * @brief The ParallelSSM15066Estimator class is multithreads version of SSM15066Estimator class.
+  * @brief The ParallelSSM15066Estimator2D class is a multithreads implementation of SSM15066Estimator2D class.
   * It uses the thread pool of Barak Shoshany (https://github.com/bshoshany/thread-pool.git) to avoid to launch and destroy threads continuously.
   */
-class ParallelSSM15066Estimator: public SSM15066Estimator
+class ParallelSSM15066Estimator2D: public SSM15066Estimator2D
 {
 protected:
 
@@ -104,27 +104,14 @@ protected:
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-  ParallelSSM15066Estimator(const rosdyn::ChainPtr &chain, const unsigned int& n_threads=std::thread::hardware_concurrency());
-  ParallelSSM15066Estimator(const rosdyn::ChainPtr &chain, const double& max_step_size, const unsigned int& n_threads=std::thread::hardware_concurrency());
-  ParallelSSM15066Estimator(const rosdyn::ChainPtr &chain, const double& max_step_size,
+  ParallelSSM15066Estimator2D(const rosdyn::ChainPtr &chain, const unsigned int& n_threads=std::thread::hardware_concurrency());
+  ParallelSSM15066Estimator2D(const rosdyn::ChainPtr &chain, const double& max_step_size, const unsigned int& n_threads=std::thread::hardware_concurrency());
+  ParallelSSM15066Estimator2D(const rosdyn::ChainPtr &chain, const double& max_step_size,
                             const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions,
                             const unsigned int& n_threads=std::thread::hardware_concurrency());
 
-  /**
-   * @brief computeWorstCaseScalingFactor computes an approximation of the average scaling factor the robot will experience travelling from
-   * q1 to q2, according to SSM ISO-15066. The maximum robot joints' velocities are considered for this computation.
-   * It speeds up the computation using multiple threads.
-   * @param q1.
-   * @param q2.
-   * @return 0 if a point q in (q1,q2) is associated with 0 scaling factor, the average scaling factor otherwise.
-   */
-  double computeScalingFactor(const Eigen::VectorXd& q1, const Eigen::VectorXd& q2);
-
-  /**
-   * @brief clone creates a copy of the object
-   * @return the cloned object
-   */
-  virtual SSM15066EstimatorPtr clone();
+  double computeScalingFactor(const Eigen::VectorXd& q1, const Eigen::VectorXd& q2) override;
+  SSM15066EstimatorPtr clone() override;
 
 };
 

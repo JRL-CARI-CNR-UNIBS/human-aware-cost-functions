@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2019, Cesare Tonola University of Brescia c.tonola001@unibs.it
+Copyright (c) 2023, Cesare Tonola University of Brescia c.tonola001@unibs.it
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -30,32 +30,36 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace ssm15066_estimator
 {
 
-MinDistanceSolver::MinDistanceSolver(const rosdyn::ChainPtr &chain, const double& max_step_size):
+MinDistanceSolver::MinDistanceSolver(const rosdyn::ChainPtr &chain):
   chain_(chain)
 {
-  setMaxStepSize(max_step_size);
   obstacles_positions_.resize(0,0);
+
+  links_names_ = chain_->getLinksName();
+  poi_names_ = links_names_;
 }
 
-MinDistanceSolver:: MinDistanceSolver(const rosdyn::ChainPtr &chain, const double& max_step_size,
+MinDistanceSolver:: MinDistanceSolver(const rosdyn::ChainPtr &chain,
                                       const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions):
   chain_(chain)
 {
-  setMaxStepSize(max_step_size);
   setObstaclesPositions(obstacles_positions);
+
+  links_names_ = chain_->getLinksName();
+  poi_names_ = links_names_;
 }
 
-void MinDistanceSolver::setMaxStepSize(const double& max_step_size)
+void MinDistanceSolver::addObstaclePosition(const Eigen::Vector3d& obstacle_position)
 {
-  max_step_size_ = max_step_size;
-  if(max_step_size_<=0)
-  {
-    ROS_ERROR("max_step_size must be positive, set equal to 0.05");
-    max_step_size_ = 0.05;
-  }
+  obstacles_positions_.conservativeResize(Eigen::NoChange, obstacles_positions_.cols()+1);
+
+  if(obstacle_position.rows()>1) // column vector
+    obstacles_positions_.col(obstacles_positions_.cols()-1) = obstacle_position;
+  else
+    obstacles_positions_.col(obstacles_positions_.cols()-1) = obstacle_position.transpose();  // make it a column vector
 }
 
-DistancePtr MinDistanceSolver::computeMinDistance(const Eigen::VectorXd& q1, const Eigen::VectorXd& q2)
+DistancePtr MinDistanceSolver::computeMinDistance(const Eigen::VectorXd& q)
 {
   DistancePtr res = std::make_shared<Distance>();
   if(obstacles_positions_.cols() == 0)
@@ -64,53 +68,49 @@ DistancePtr MinDistanceSolver::computeMinDistance(const Eigen::VectorXd& q1, con
     return res;
   }
 
-  unsigned int iter = std::ceil((q2-q1).norm()/max_step_size_);
-
-  Eigen::VectorXd q = q1;
-  Eigen::VectorXd delta_q = (q2-q1)/iter;
-
-  std::vector<Eigen::Affine3d, Eigen::aligned_allocator<Eigen::Affine3d>> poi_poses_in_base;
-
-  double distance, min_distance;
-  unsigned int poi_idx, obj_idx;
-  Eigen::VectorXd robot_configuration;
+  double distance;
+  unsigned int poi_idx, obs_idx;
   Eigen::Vector3d distance_vector, min_distance_vector;
 
-  min_distance = std::numeric_limits<double>::infinity();
+  double min_distance = std::numeric_limits<double>::infinity();
+  std::vector<Eigen::Affine3d, Eigen::aligned_allocator<Eigen::Affine3d>> poi_poses_in_base = chain_->getTransformations(q);
 
-  for(unsigned int i=0;i<iter+1;i++)  //try it in parallel --> TO DO
+  for (Eigen::Index i_obs=0;i_obs<obstacles_positions_.cols();i_obs++)
   {
-    poi_poses_in_base = chain_->getTransformations(q);
-
-    for (Eigen::Index i_obj=0;i_obj<obstacles_positions_.cols();i_obj++)
+    for (size_t i_poi=0;i_poi<poi_poses_in_base.size();i_poi++)
     {
-      for (size_t i_poi=0;i_poi<poi_poses_in_base.size();i_poi++)
+      //consider only links inside the poi_names_ list
+      if(std::find(poi_names_.begin(),poi_names_.end(),links_names_[i_poi])>=poi_names_.end())
+        continue;
+
+      distance_vector = obstacles_positions_.col(i_obs)-poi_poses_in_base.at(i_poi).translation(); //in base
+      distance = distance_vector.norm();
+
+      if(distance<min_distance)
       {
-        distance_vector = obstacles_positions_.col(i_obj)-poi_poses_in_base.at(i_poi).translation(); //in base
-        distance = distance_vector.norm();
+        min_distance = distance;
+        min_distance_vector = distance_vector;
 
-        if(distance<min_distance)
-        {
-          min_distance = distance;
-          min_distance_vector = distance_vector;
-
-          robot_configuration = q;
-
-          poi_idx = i_poi;
-          obj_idx = i_obj;
-        }
+        poi_idx = i_poi;
+        obs_idx = i_obs;
       }
     }
-
-    q = q+delta_q;
   }
 
+  res->robot_configuration_ = q                  ;
+  res->robot_poi_           = poi_idx            ;
+  res->obstacle_            = obs_idx            ;
   res->distance_            = min_distance       ;
   res->distance_vector_     = min_distance_vector;
-  res->robot_configuration_ = robot_configuration;
-  res->robot_poi_           = poi_idx            ;
-  res->object_              = obj_idx            ;
 
   return res;
 }
+
+MinDistanceSolverPtr MinDistanceSolver::clone()
+{
+  MinDistanceSolverPtr clone = std::make_shared<MinDistanceSolver>(chain_->clone(),obstacles_positions_);
+  return clone;
+}
+
+
 }

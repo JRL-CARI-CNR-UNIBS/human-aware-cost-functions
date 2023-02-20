@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(length_penalty_metrics)
 add_compile_options(-pthread -std=c++17 -funroll-loops -Wall -Ofast)
-set(CMAKE_BUILD_TYPE Release)
-#set(CMAKE_BUILD_TYPE Debug)
+#set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE Debug)
 
 find_package(catkin REQUIRED COMPONENTS
 roscpp
@@ -24,7 +24,9 @@ include_directories(
 add_library(${PROJECT_NAME}
 src/length_penalty_metrics.cpp
 src/ssm15066_estimators/ssm15066_estimator.cpp
-src/ssm15066_estimators/parallel_ssm15066_estimator.cpp
+src/ssm15066_estimators/ssm15066_estimator1D.cpp
+src/ssm15066_estimators/ssm15066_estimator2D.cpp
+src/ssm15066_estimators/parallel_ssm15066_estimator2D.cpp
 src/min_distance_solvers/min_distance_solver.cpp
 )
 add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})

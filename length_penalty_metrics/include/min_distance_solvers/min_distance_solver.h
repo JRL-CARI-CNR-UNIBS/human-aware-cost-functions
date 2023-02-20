@@ -29,8 +29,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <rosdyn_core/primitives.h>
 #include <min_distance_solvers/util.h>
 
-/* The purpose of the class is the computation of the minimum distance between the human and the robot given a connection as input */
-
 namespace ssm15066_estimator
 {
 class MinDistanceSolver;
@@ -43,11 +41,6 @@ class MinDistanceSolver
 {
 protected:
   /**
-  * @brief max_step_size_: max step between consecutive points along a connection for which the distance robot-obstacles is measured.
-  */
-  double max_step_size_;
-
-  /**
    * @brief chain_: robot chain.
    */
   rosdyn::ChainPtr chain_;
@@ -57,28 +50,47 @@ protected:
    */
   Eigen::Matrix<double,3,Eigen::Dynamic> obstacles_positions_;
 
+  /**
+   * @brief poi_names_ is a vector containing the names of the points of interest of the robot structure.
+   */
+  std::vector<std::string> poi_names_;
+
+  /**
+   * @brief links_names_ is a vector of the names of all the links of the robot.
+   */
+  std::vector<std::string> links_names_;
+
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-  MinDistanceSolver(const rosdyn::ChainPtr& chain, const double& max_step_size);
-  MinDistanceSolver(const rosdyn::ChainPtr &chain, const double& max_step_size,
-                    const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions);
+  MinDistanceSolver(const rosdyn::ChainPtr& chain);
+  MinDistanceSolver(const rosdyn::ChainPtr &chain, const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions);
 
   rosdyn::ChainPtr getChain(){return chain_;}
 
-  void setMaxStepSize(const double& max_step_size);
   void setChain(const rosdyn::ChainPtr& chain){chain_ = chain;}
-  void setObstaclesPositions(const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions)
-  {obstacles_positions_ = obstacles_positions;}
+  void setPoiNames(const std::vector<std::string> poi_names){poi_names_ = poi_names;}
+  void setObstaclesPositions(const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions){obstacles_positions_ = obstacles_positions;}
+
+  Eigen::Matrix<double,3,Eigen::Dynamic> getObstaclesPositions(){return obstacles_positions_;}
+
+  /**
+   * @brief addObstaclePosition adds an obstacle to the already existing obstacle matrix.
+   * @param obstacle_position is the new obstacle position vector (x,y,z)
+   */
+  void addObstaclePosition(const Eigen::Vector3d& obstacle_position);
 
   /**
    * @brief computeMinDistance: computes the minimum distance between the robot's points of interests (poi) and the obstacles present in the scene.
-   * It discretizes the connection (q1,q2) into more points and the distance between robot's poi and obstacles is computed for each one.
-   * The maximum distance between consecutive points is equal to max_step_size_.
-   * @param q1: first configuration of the connection.
-   * @param q2: last configuration of the connection.
+   * @param q: robot configuration
    * @return a DistancePtr object containing the minimum distance information.
    */
-  virtual DistancePtr computeMinDistance(const Eigen::VectorXd& q1, const Eigen::VectorXd& q2);
+  virtual DistancePtr computeMinDistance(const Eigen::VectorXd& q);
+
+  /**
+   * @brief clone gives a cloned and indipendent copy of the object
+   * @return the cloned object
+   */
+  virtual MinDistanceSolverPtr clone();
 };
 
 }

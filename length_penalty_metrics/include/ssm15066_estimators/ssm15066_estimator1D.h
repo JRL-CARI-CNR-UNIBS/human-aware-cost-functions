@@ -26,32 +26,36 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
-#include <ros/ros.h>
-#include <eigen3/Eigen/Core>
+#include <ssm15066_estimators/ssm15066_estimator.h>
+#include <min_distance_solvers/min_distance_solver.h>
 
 namespace ssm15066_estimator
 {
+class SSM15066Estimator1D;
+typedef std::shared_ptr<SSM15066Estimator1D> SSM15066Estimator1DPtr;
 
 /**
- * @brief The Distance struct collects information about the distance between a robot point of interest (poi) and an object.
- */
-struct Distance
+  * @brief The SSM15066Estimator1D class is a 1D dSSM estimator, that means that the robot is considered as it is always moving in the direction
+  * of the human. It is a more conservative version of SSM15066Estimator2D but less computational expensive.
+  * It computes the scaling factor for each configuration xi along a connection (xs,xg) and then the mean value.
+  * The computation is sequential.
+  */
+class SSM15066Estimator1D: public SSM15066Estimator
 {
-  double distance_;
-  Eigen::Vector3d distance_vector_;
-  Eigen::VectorXd robot_configuration_;
+protected:
+  MinDistanceSolverPtr min_distance_solver_;
 
-  /**
-   * @brief robot_poi_ is the index which identifies the poi on the robot structure
-   */
-  unsigned int robot_poi_;
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+  SSM15066Estimator1D(const rosdyn::ChainPtr &chain, const double& max_step_size=0.05);
+  SSM15066Estimator1D(const rosdyn::ChainPtr &chain, const double& max_step_size,
+                    const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions);
 
-  /**
-   * @brief obstacle_ is the index which identifies the specific obstacle in the scene
-   */
-  unsigned int obstacle_;
+  void addObstaclePosition(const Eigen::Vector3d& obstacle_position) override;
+  void setObstaclesPositions(const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions) override;
+
+  virtual double computeScalingFactor(const Eigen::VectorXd& q1, const Eigen::VectorXd& q2) override;
+  virtual SSM15066EstimatorPtr clone() override;
 };
 
-typedef std::shared_ptr<Distance> DistancePtr;
 }

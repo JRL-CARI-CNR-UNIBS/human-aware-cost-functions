@@ -36,7 +36,7 @@ class SSM15066Estimator;
 typedef std::shared_ptr<SSM15066Estimator> SSM15066EstimatorPtr;
 
 /**
-  * @brief The SSM15066Estimator class is a template for safety related velocity scaling factor (SSM ISO-15066) estimator.
+  * @brief The SSM15066Estimator class is a template for safety related velocity scaling factor (SSM ISO/TS-15066) estimator.
   * The goal is to compute an approximation of the average scaling factor that the robot will experiment moving from a
   * configuration q1 to a configuration q2, given the obstacles positions (e.g., human's head, arms and torso positions)
   */
@@ -74,30 +74,15 @@ protected:
   */
   double max_step_size_;
 
-  //  /**
-  //   * @brief v_h_ is the cartesian human velocity towards the robot.  NOT CONSIDERED FOR NOW
-  //   */
-  //  double v_h_;
+  /**
+     * @brief human_velocity_ is the cartesian human velocity towards the robot.
+     */
+  double human_velocity_;
 
   /**
-   * @brief t_r_ is the reaction time of the system.
+   * @brief reaction_time_ is the reaction time of the robotic system.
    */
-  double t_r_ ;
-
-  /**
-   * @brief term1_ stores the constant part of the SSM15066 equation (human velocity not considered).
-   */
-  double term1_;
-
-  /**
-   * @brief a_t_r_ is the term a*Tr of the SSM15066 equation.
-   */
-  double a_t_r_;
-
-  /**
-   * @brief min_distance_ is the minimum human-robot allowed distance.
-   */
-  double min_distance_;
+  double reaction_time_;
 
   /**
    * @brief max_cart_acc_ is the maximum cartesian robot acceleration (m/s^2)
@@ -105,9 +90,35 @@ protected:
   double max_cart_acc_;
 
   /**
+   * @brief min_distance_ is the minimum human-robot allowed distance.
+   */
+  double min_distance_;
+
+  /**
+   * @brief term1_ stores a constant part of the SSM15066 equation.
+   */
+  double term1_;
+
+  /**
+   * @brief term2_ stores a constant part of the SSM15066 equation.
+   */
+  double term2_;
+
+  /**
    * @brief verbose_ defines thelevel of  verbosity
    */
   unsigned int verbose_;
+
+  /**
+   * @brief safeVelocity applies the SSM equation to compute the maximum robot cartesian velocity given the minimum human-robot distance as input
+   * @param distance is the minimum human-robot distance
+   * @return the safe robot velocity according to ISO/TS 15066
+   */
+  double safeVelocity(const double& distance)
+  {
+    assert(term1_+2.0*max_cart_acc_*distance>=0);
+    return std::max(std::sqrt(term1_+2.0*max_cart_acc_*distance)+term2_,0.0);
+  }
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -115,14 +126,18 @@ public:
   SSM15066Estimator(const rosdyn::ChainPtr &chain, const double& max_step_size,
                     const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions);
 
+  /**
+   * @brief REMEMBER TO CALL updateMembers() whenever you change a class member using the following functions
+   */
   void updateMembers();
   void setMaxStepSize(const double& max_step_size);
-  void setReactionTime(const double& t_r){t_r_ = t_r;}
-  void setVerbose(const unsigned int& verbose){verbose_ = verbose;}
   void setMaxCartAcc(const double& max_cart_acc){max_cart_acc_ = max_cart_acc;}
   void setMinDistance(const double& min_distance){min_distance_ = min_distance;}
+  void setReactionTime(const double& reaction_time){reaction_time_ = reaction_time;}
+  void setHumanVelocity(const double& human_velocity){human_velocity_ = human_velocity;}
+
+  void setVerbose(const unsigned int& verbose){verbose_ = verbose;}
   void setPoiNames(const std::vector<std::string> poi_names){poi_names_ = poi_names;}
-  void setObstaclesPositions(const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions){obstacles_positions_ = obstacles_positions;}
 
   /**
    * @brief getObstaclePosition return the obstacles positions matrix
@@ -131,25 +146,31 @@ public:
   Eigen::Matrix<double,3,Eigen::Dynamic> getObstaclesPositions(){return obstacles_positions_;}
 
   /**
-   * @brief addObstaclePosition adds an obstacle to the already existing obstacle matrix.
-   * @param obstacle_position is the new obstacle position vector (x,y,z)
+   * @brief setObstaclesPositions sets the matrix of obstacles locations
+   * @param obstacles_positions is the matrix containing in the columns the location of each obstacle as x,y,z
    */
-  void addObstaclePosition(const Eigen::Vector3d& obstacle_position);
+  virtual void setObstaclesPositions(const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions){obstacles_positions_ = obstacles_positions;}
+
+  /**
+   * @brief addObstaclePosition adds an obstacle to the already existing obstacles matrix.
+   * @param obstacle_position is the new obstacle location vector (x,y,z)
+   */
+  virtual void addObstaclePosition(const Eigen::Vector3d& obstacle_position);
 
   /**
    * @brief computeWorstCaseScalingFactor computes an approximation of the average scaling factor the robot will experience travelling from
    * q1 to q2, according to SSM ISO-15066. The maximum robot joints' velocities are considered for this computation.
    * @param q1.
    * @param q2.
-   * @return 0 if a point q in (q1,q2) is associated with 0 scaling factor, the average scaling factor otherwise.
+   * @return 0 if a point q in (q1,q2) is associated with a 0 scaling factor, the average scaling factor otherwise.
    */
-  virtual double computeScalingFactor(const Eigen::VectorXd& q1, const Eigen::VectorXd& q2);
+  virtual double computeScalingFactor(const Eigen::VectorXd& q1, const Eigen::VectorXd& q2) = 0;
 
   /**
    * @brief clone creates a copy of the object
    * @return the cloned object
    */
-  virtual SSM15066EstimatorPtr clone();
+  virtual SSM15066EstimatorPtr clone() = 0;
 };
 
 }

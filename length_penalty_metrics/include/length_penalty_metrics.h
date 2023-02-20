@@ -28,7 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <graph_core/metrics.h>
 #include <graph_core/graph/node.h>
-#include <ssm15066_estimators/parallel_ssm15066_estimator.h>
+#include <ssm15066_estimators/ssm15066_estimator.h>
 
 namespace pathplan
 {
@@ -55,7 +55,6 @@ protected:
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-  LengthPenaltyMetrics();
   LengthPenaltyMetrics(const ssm15066_estimator::SSM15066EstimatorPtr& ssm15066_estimator);
 
   void setObstaclesPosition(const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions)
