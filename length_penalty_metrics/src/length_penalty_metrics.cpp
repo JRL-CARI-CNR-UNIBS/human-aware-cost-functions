@@ -43,13 +43,30 @@ double LengthPenaltyMetrics::cost(const Eigen::VectorXd& configuration1,
                                   const Eigen::VectorXd& configuration2)
 {
   double scaling_factor = ssm15066_estimator_->computeScalingFactor(configuration1,configuration2);
-  assert(scaling_factor>=0 && scaling_factor <=1);
+
+  assert([&]() ->bool{
+           if(scaling_factor>=0.0 && scaling_factor <=1.0)
+           {
+             return true;
+           }
+           else
+           {
+             ROS_INFO_STREAM("Scaling factor "<<scaling_factor);
+             ROS_YELLOW_STREAM("Recomputing scaling factor with verbose");
+             ssm15066_estimator_->setVerbose(1);
+             ssm15066_estimator_->computeScalingFactor(configuration1,configuration2);
+             return false;
+           }
+         }());
 
   double lambda;
   if(scaling_factor == 0)
-    lambda = std::numeric_limits<double>::infinity();
+  {
+    lambda = lambda_penalty_;
+    // lambda = std::numeric_limits<double>::max(); //lambda = std::numeric_limits<double>::infinity();
+  }
   else
-    lambda = 1/scaling_factor;
+    lambda = 1.0/scaling_factor;
 
   return (Metrics::cost(configuration1, configuration2))*lambda;
 }

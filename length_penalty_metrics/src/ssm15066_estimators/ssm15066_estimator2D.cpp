@@ -43,6 +43,7 @@ double SSM15066Estimator2D::computeScalingFactor(const Eigen::VectorXd& q1, cons
 
   double sum_scaling_factor = 0.0;
 
+  bool tmp_saved = false;
   Eigen::Vector3d distance_vector, tmp_distance_vector;
   double distance, tangential_speed, scaling_factor, min_scaling_factor_of_q, v_safety, tmp_speed;
   std::vector<Eigen::Affine3d, Eigen::aligned_allocator<Eigen::Affine3d>>  poi_poses_in_base, tmp_pose;
@@ -55,10 +56,13 @@ double SSM15066Estimator2D::computeScalingFactor(const Eigen::VectorXd& q1, cons
    * move at (t_i/slowest_joint_time)*max_speed_i, where slowest_joint_time >= t_i */
   Eigen::VectorXd dq = (q2-q1)/slowest_joint_time;
 
-  unsigned int iter = std::ceil((q2-q1).norm()/max_step_size_);
+  unsigned int iter = std::max(std::ceil((q2-q1).norm()/max_step_size_),1.0);
 
   Eigen::VectorXd q;
   Eigen::VectorXd delta_q = (q2-q1)/iter;
+
+  if(verbose_>0)
+    ROS_ERROR_STREAM("delta q "<<delta_q.transpose()<<" iter "<<iter);
 
   for(unsigned int i=0;i<iter+1;i++)
   {
@@ -77,6 +81,13 @@ double SSM15066Estimator2D::computeScalingFactor(const Eigen::VectorXd& q1, cons
         if(std::find(poi_names_.begin(),poi_names_.end(),links_names_[i_poi])>=poi_names_.end())
           continue;
 
+        if(verbose_)
+        {
+          Eigen::Vector3d diff = obstacles_positions_.col(i_obs)-poi_poses_in_base.at(i_poi).translation();
+          ROS_ERROR_STREAM("poi name "<<links_names_[i_poi]);
+          ROS_ERROR_STREAM("poi pos "<<poi_poses_in_base.at(i_poi).translation().transpose()<<" obs pos "<<obstacles_positions_.col(i_obs).transpose()<<" diff "<<diff.transpose());
+        }
+
         distance_vector = obstacles_positions_.col(i_obs)-poi_poses_in_base.at(i_poi).translation();
         distance = distance_vector.norm();
 
@@ -94,10 +105,18 @@ double SSM15066Estimator2D::computeScalingFactor(const Eigen::VectorXd& q1, cons
           assert(v_safety>=0);
 
           if(scaling_factor < 1e-02)
+          {
+            if(verbose_)
+              ROS_ERROR("scaling factor close to 0");
+
             return 0.0;
+          }
         }
         else  // distance<=min_distance -> you have found the minimum scaling factor, return
         {
+          if(verbose_)
+            ROS_ERROR("scaling factor 0");
+
           return 0.0;  //if one point q has 0.0 scaling factor, return it
         }
 
@@ -111,6 +130,7 @@ double SSM15066Estimator2D::computeScalingFactor(const Eigen::VectorXd& q1, cons
             tmp_speed = tangential_speed;
             tmp_pose = poi_poses_in_base;
             tmp_twist = poi_twist_in_base;
+            tmp_saved = true;
           }
         }
       } // end robot poi for loop
@@ -118,8 +138,9 @@ double SSM15066Estimator2D::computeScalingFactor(const Eigen::VectorXd& q1, cons
 
     if(verbose_>0)
     {
-      ROS_ERROR_STREAM("q "<<q.transpose()<<" || dist vector: "<<tmp_distance_vector.transpose()<<" || tangential speed: "<<tmp_speed<<
-                       " || scaling factor at q: "<<min_scaling_factor_of_q);
+      if(tmp_saved)
+        ROS_ERROR_STREAM("q "<<q.transpose()<<" || dist vector: "<<tmp_distance_vector.transpose()<<" || tangential speed: "<<tmp_speed<<
+                         " || scaling factor at q: "<<min_scaling_factor_of_q);
 
       if(verbose_ ==2 )
       {
@@ -129,15 +150,41 @@ double SSM15066Estimator2D::computeScalingFactor(const Eigen::VectorXd& q1, cons
         for(Eigen::Vector6d t:tmp_twist)
           ROS_ERROR_STREAM("POI twists "<<t.transpose());
       }
+
+      ROS_ERROR("------------");
     }
 
     sum_scaling_factor += min_scaling_factor_of_q;
   } //end q for loop
 
-  assert((q2-q).norm()<1e-08);
+  assert([&]() ->bool{
+           double err = (q2-q).norm();
+           if(err<1e-08)
+           {
+             return true;
+           }
+           else
+           {
+             ROS_INFO_STREAM("error "<<err<<" q "<<q.transpose()<<" q2 "<<q2.transpose());
+             return false;
+           }
+         }());
 
   // return the average scaling factor (if no q have zero scaling factor)
-  return sum_scaling_factor/((double) iter+1);
+  double res = sum_scaling_factor/((double) iter+1);
+  assert([&]() ->bool{
+           if(res>=0 && res<=1)
+           {
+             return true;
+           }
+           else
+           {
+             ROS_INFO_STREAM("Scaling factor "<<res<<" sum "<<sum_scaling_factor<<" denominator "<<iter+1);
+             return false;
+           }
+         }());
+
+  return res;
 }
 
 SSM15066EstimatorPtr SSM15066Estimator2D::clone()

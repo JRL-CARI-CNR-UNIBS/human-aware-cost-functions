@@ -71,7 +71,7 @@ double SSM15066Estimator1D::computeScalingFactor(const Eigen::VectorXd& q1, cons
    * move at (t_i/slowest_joint_time)*max_speed_i, where slowest_joint_time >= t_i */
   Eigen::VectorXd dq = (q2-q1)/slowest_joint_time;
 
-  unsigned int iter = std::ceil((q2-q1).norm()/max_step_size_);
+  unsigned int iter = std::max(std::ceil((q2-q1).norm()/max_step_size_),1.0);
 
   Eigen::VectorXd q;
   Eigen::VectorXd delta_q = (q2-q1)/iter;

@@ -117,7 +117,22 @@ protected:
   double safeVelocity(const double& distance)
   {
     assert(term1_+2.0*max_cart_acc_*distance>=0);
-    return std::max(std::sqrt(term1_+2.0*max_cart_acc_*distance)+term2_,0.0);
+
+//    term1_ = std::pow(human_velocity_,2.0)+std::pow(a_tr,2.0)-2.0*max_cart_acc_*min_distance_;
+//    term2_ = -a_tr-human_velocity_;
+
+    double v_safe = std::max((std::sqrt(term1_+2.0*max_cart_acc_*distance)+term2_),0.0);
+
+    if(v_safe == 0.0)
+    {
+      ROS_INFO_STREAM("term1_ "<<term1_<<" 2aS "<<2.0*max_cart_acc_*distance<<" term2_ "<<term2_);
+      ROS_INFO_STREAM("vh "<<human_velocity_<<" atr "<<max_cart_acc_*reaction_time_<<" -2aC "<<-2.0*max_cart_acc_*min_distance_);
+    }
+
+    if(verbose_>0)
+      ROS_INFO_STREAM("v_safe "<<v_safe);
+
+    return v_safe;
   }
 
 public:
@@ -156,6 +171,11 @@ public:
    * @param obstacle_position is the new obstacle location vector (x,y,z)
    */
   virtual void addObstaclePosition(const Eigen::Vector3d& obstacle_position);
+
+  /**
+   * @brief clearObstaclePosition clears the matrix of obstacles locartions
+   */
+  void clearObstaclesPositions(){obstacles_positions_.resize(3,0);}
 
   /**
    * @brief computeWorstCaseScalingFactor computes an approximation of the average scaling factor the robot will experience travelling from

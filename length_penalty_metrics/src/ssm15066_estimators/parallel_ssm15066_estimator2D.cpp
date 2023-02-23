@@ -80,6 +80,10 @@ void ParallelSSM15066Estimator2D::resetQueues()
   stop_ = true;
 
   pool_->wait_for_tasks();
+  assert(pool_->get_tasks_total  () == 0);
+  assert(pool_->get_tasks_queued () == 0);
+  assert(pool_->get_tasks_running() == 0);
+
   std::for_each(queues_.begin(),queues_.end(),[&](Queue& queue){
     queue.reset();
   });
@@ -96,10 +100,6 @@ void ParallelSSM15066Estimator2D::resetQueues()
            }
            return true;
          }());
-
-  assert(pool_->get_tasks_total  () == 0);
-  assert(pool_->get_tasks_queued () == 0);
-  assert(pool_->get_tasks_running() == 0);
 }
 
 unsigned int ParallelSSM15066Estimator2D::fillQueues(const Eigen::VectorXd& q1, const Eigen::VectorXd q2)
@@ -107,7 +107,7 @@ unsigned int ParallelSSM15066Estimator2D::fillQueues(const Eigen::VectorXd& q1, 
   bool all_threads = false;
   unsigned int n_addends = 0;
   unsigned int thread_iter = 0;
-  unsigned int iter = std::ceil((q2-q1).norm()/max_step_size_);
+  unsigned int iter = std::max(std::ceil((q2-q1).norm()/max_step_size_),1.0);
 
   Eigen::VectorXd q;
   Eigen::VectorXd delta_q = (q2-q1)/iter;
@@ -128,7 +128,21 @@ unsigned int ParallelSSM15066Estimator2D::fillQueues(const Eigen::VectorXd& q1, 
     thread_iter++;
   }
 
-  assert((q2-q).norm()<1e-08);
+  assert([&]() ->bool{
+           double diff = (q2-q).norm();
+           if(diff<1e-08)
+           {
+             return true;
+           }
+           else
+           {
+             ROS_INFO_STREAM("Diff "<<diff);
+             ROS_INFO_STREAM("q "<<q.transpose()<<"\nq2 "<<q2.transpose());
+             ROS_INFO_STREAM("iter "<<iter);
+             ROS_INFO_STREAM("iter+1 "<<(iter+1)<<" delta_q "<<delta_q.transpose()<<" product "<<((iter+1)*delta_q).transpose());
+             return false;
+           }
+         }());
   assert(n_addends == iter+1);
 
   if(all_threads)
@@ -191,10 +205,28 @@ double ParallelSSM15066Estimator2D::computeScalingFactor(const Eigen::VectorXd& 
   time_join = (toc-tic).toSec();
   time_tot = (toc-tic_init).toSec();
 
-  if(verbose_>0)
-    ROS_INFO_STREAM("time reset queues "<<(time_reset/time_tot)*100<<"% || time fill queues "<<(time_fill/time_tot)*100<<"% || time threads creation "<<(time_thread/time_tot)*100<<"% || time executions "<<(time_join/time_tot)*100<<"%");
+  double scaling_factor = (sum_scaling_factors/((double) n_addends));
 
-  return (sum_scaling_factors/((double) n_addends));
+  assert([&]() ->bool{
+           if(scaling_factor<=1 && scaling_factor>=0)
+           {
+             return true;
+           }
+           else
+           {
+             ROS_INFO_STREAM("Scaling factor "<<scaling_factor);
+             ROS_INFO_STREAM("sum "<<sum_scaling_factors<<" addends "<<(double) n_addends<<" iter "<< std::max(std::ceil((q2-q1).norm()/max_step_size_),1.0));
+             return false;
+           }
+         }());
+
+  if(verbose_>0)
+  {
+
+    ROS_INFO_STREAM("sum_scaling_factors "<<sum_scaling_factors<<" n_addends "<<(double) n_addends<<" res "<<scaling_factor);
+    ROS_INFO_STREAM("time reset queues "<<(time_reset/time_tot)*100<<"% || time fill queues "<<(time_fill/time_tot)*100<<"% || time threads creation "<<(time_thread/time_tot)*100<<"% || time executions "<<(time_join/time_tot)*100<<"%");
+  }
+  return scaling_factor;
 }
 
 double ParallelSSM15066Estimator2D::computeScalingFactorAsync(const unsigned int& idx_queue)

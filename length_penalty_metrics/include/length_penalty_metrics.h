@@ -55,22 +55,10 @@ protected:
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+  static constexpr double lambda_penalty_ = 1.0e12;
+
   LengthPenaltyMetrics(const ssm15066_estimator::SSM15066EstimatorPtr& ssm15066_estimator);
-
-  void setObstaclesPosition(const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions)
-  {
-    ssm15066_estimator_->setObstaclesPositions(obstacles_positions);
-  }
-
-  void addObstaclePosition(const Eigen::Vector3d& obstacle_position)
-  {
-    ssm15066_estimator_->addObstaclePosition(obstacle_position);
-  }
-
-  void setPoiNames(const std::vector<std::string>& poi_names)
-  {
-    ssm15066_estimator_->setPoiNames(poi_names);
-  }
 
   ssm15066_estimator::SSM15066EstimatorPtr getSSM()
   {
