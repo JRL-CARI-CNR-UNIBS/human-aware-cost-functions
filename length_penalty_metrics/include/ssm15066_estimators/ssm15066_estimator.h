@@ -129,9 +129,6 @@ protected:
       ROS_INFO_STREAM("vh "<<human_velocity_<<" atr "<<max_cart_acc_*reaction_time_<<" -2aC "<<-2.0*max_cart_acc_*min_distance_);
     }
 
-    if(verbose_>0)
-      ROS_INFO_STREAM("v_safe "<<v_safe);
-
     return v_safe;
   }
 

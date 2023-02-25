@@ -42,7 +42,11 @@ double LengthPenaltyMetrics::cost(const NodePtr& node1,
 double LengthPenaltyMetrics::cost(const Eigen::VectorXd& configuration1,
                                   const Eigen::VectorXd& configuration2)
 {
-  double scaling_factor = ssm15066_estimator_->computeScalingFactor(configuration1,configuration2);
+  double scaling_factor;
+  if(configuration1 == configuration2)
+    scaling_factor = 1.0;
+  else
+    scaling_factor = ssm15066_estimator_->computeScalingFactor(configuration1,configuration2);
 
   assert([&]() ->bool{
            if(scaling_factor>=0.0 && scaling_factor <=1.0)
