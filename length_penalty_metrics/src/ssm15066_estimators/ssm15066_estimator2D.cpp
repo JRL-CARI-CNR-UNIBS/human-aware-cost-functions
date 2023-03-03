@@ -42,7 +42,11 @@ double SSM15066Estimator2D::computeScalingFactor(const Eigen::VectorXd& q1, cons
     return 1.0;
 
   if(verbose_>0)
-    ROS_ERROR_STREAM("number of obstacles "<<obstacles_positions_.cols()<<" location "<<obstacles_positions_.col(0).transpose()<<" number of poi "<<poi_names_.size());
+  {
+    ROS_ERROR_STREAM("number of obstacles: "<<obstacles_positions_.cols()<<", number of poi: "<<poi_names_.size());
+    for(unsigned int i=0;i<obstacles_positions_.cols();i++)
+      ROS_ERROR_STREAM("obs location -> "<<obstacles_positions_.col(i).transpose());
+  }
 
   double sum_scaling_factor = 0.0;
 
@@ -121,9 +125,9 @@ double SSM15066Estimator2D::computeScalingFactor(const Eigen::VectorXd& q1, cons
           if(verbose_>0)
             ROS_INFO_STREAM("v_safety "<<v_safety<<" scaling factor "<<scaling_factor);
 
-          assert(v_safety>=0);
+          assert(v_safety>=0.0);
 
-          if(scaling_factor < 1e-02)
+          if(scaling_factor<1e-02)
           {
             if(verbose_)
               ROS_ERROR("scaling factor close to 0");
@@ -145,8 +149,8 @@ double SSM15066Estimator2D::computeScalingFactor(const Eigen::VectorXd& q1, cons
         if(scaling_factor<min_scaling_factor_of_q)
           min_scaling_factor_of_q = scaling_factor;
 
-      } // end robot poi for loop
-    } // end obstacles for loop
+      } // end robot poi for-loop
+    } // end obstacles for-loop
 
     if(verbose_>0)
     {
@@ -155,17 +159,22 @@ double SSM15066Estimator2D::computeScalingFactor(const Eigen::VectorXd& q1, cons
     }
 
     sum_scaling_factor += min_scaling_factor_of_q;
-  } //end q for loop
+  } //end q for-loop
 
   assert([&]() ->bool{
            double err = (q2-q).norm();
-           if(err<1e-08)
+           if(err<1e-03)
            {
              return true;
            }
            else
            {
              ROS_INFO_STREAM("error "<<err<<" q "<<q.transpose()<<" q2 "<<q2.transpose());
+             ROS_INFO_STREAM("q2-q1/step size "<<std::ceil((q2-q1).norm()/max_step_size_));
+             ROS_INFO_STREAM("ceil "<<std::ceil((q2-q1).norm()/max_step_size_));
+             ROS_INFO_STREAM("iter "<<iter);
+             ROS_INFO_STREAM("delta "<<delta_q.transpose());
+
              return false;
            }
          }());
@@ -191,9 +200,14 @@ SSM15066EstimatorPtr SSM15066Estimator2D::clone()
 {
   SSM15066Estimator2DPtr clone = std::make_shared<SSM15066Estimator2D>(chain_->clone(),max_step_size_,obstacles_positions_);
 
-  clone->setMaxCartAcc(max_cart_acc_);
-  clone->setMinDistance(min_distance_);
+  clone->setPoiNames(poi_names_);
   clone->setMaxStepSize(max_step_size_);
+  clone->setObstaclesPositions(obstacles_positions_);
+
+  clone->setMaxCartAcc(max_cart_acc_,false);
+  clone->setMinDistance(min_distance_,false);
+  clone->setReactionTime(reaction_time_,false);
+  clone->setHumanVelocity(human_velocity_,false);
 
   clone->updateMembers();
 

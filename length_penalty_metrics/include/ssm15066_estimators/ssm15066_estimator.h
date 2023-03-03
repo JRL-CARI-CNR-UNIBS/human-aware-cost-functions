@@ -117,19 +117,10 @@ protected:
   double safeVelocity(const double& distance)
   {
     assert(term1_+2.0*max_cart_acc_*distance>=0);
+    assert(term1_ == std::pow(human_velocity_,2.0)+std::pow(max_cart_acc_*reaction_time_,2.0)-2.0*max_cart_acc_*min_distance_);
+    assert(term2_ == -max_cart_acc_*reaction_time_-human_velocity_);
 
-//    term1_ = std::pow(human_velocity_,2.0)+std::pow(a_tr,2.0)-2.0*max_cart_acc_*min_distance_;
-//    term2_ = -a_tr-human_velocity_;
-
-    double v_safe = std::max((std::sqrt(term1_+2.0*max_cart_acc_*distance)+term2_),0.0);
-
-    if(v_safe == 0.0)
-    {
-      ROS_INFO_STREAM("term1_ "<<term1_<<" 2aS "<<2.0*max_cart_acc_*distance<<" term2_ "<<term2_);
-      ROS_INFO_STREAM("vh "<<human_velocity_<<" atr "<<max_cart_acc_*reaction_time_<<" -2aC "<<-2.0*max_cart_acc_*min_distance_);
-    }
-
-    return v_safe;
+    return std::max(std::sqrt(term1_+2.0*max_cart_acc_*distance)+term2_,0.0);
   }
 
 public:
@@ -139,15 +130,37 @@ public:
                     const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions);
 
   /**
-   * @brief REMEMBER TO CALL updateMembers() whenever you change a class member using the following functions
+   * @brief Change a class member using the following functions. By defaults, term1_ and term2_ are updated
+   * everytime you modify a class member. If you need to change multiple members and you don't want to call
+   * updateMembers() everytime set update = false in each function and call updateMembers() at the end.
    */
   void updateMembers();
-  void setMaxStepSize(const double& max_step_size);
-  void setMaxCartAcc(const double& max_cart_acc){max_cart_acc_ = max_cart_acc;}
-  void setMinDistance(const double& min_distance){min_distance_ = min_distance;}
-  void setReactionTime(const double& reaction_time){reaction_time_ = reaction_time;}
-  void setHumanVelocity(const double& human_velocity){human_velocity_ = human_velocity;}
+  void setMaxCartAcc(const double& max_cart_acc, const bool update = true)
+  {
+    max_cart_acc_ = max_cart_acc;
+    if(update)
+      updateMembers();
+  }
+  void setMinDistance(const double& min_distance, const bool update = true)
+  {
+    min_distance_ = min_distance;
+    if(update)
+      updateMembers();
+  }
+  void setReactionTime(const double& reaction_time, const bool update = true)
+  {
+    reaction_time_ = reaction_time;
+    if(update)
+      updateMembers();
+  }
+  void setHumanVelocity(const double& human_velocity, const bool update = true)
+  {
+    human_velocity_ = human_velocity;
+    if(update)
+      updateMembers();
+  }
 
+  void setMaxStepSize(const double& max_step_size);
   void setVerbose(const unsigned int& verbose){verbose_ = verbose;}
   void setPoiNames(const std::vector<std::string> poi_names){poi_names_ = poi_names;}
 

@@ -53,13 +53,14 @@ protected:
     void reset(){queue_.clear();}
     void insert(const Eigen::VectorXd& q){queue_.push_back(q);}
   };
+  typedef std::shared_ptr<Queue> QueuePtr;
 
   /**
    * @brief These are class members related to threads management
    */
   bool stop_;
   unsigned int n_threads_;
-  std::vector<Queue> queues_;
+  std::vector<QueuePtr> queues_;
   unsigned int running_threads_;
   std::vector<rosdyn::ChainPtr> chains_;
   std::vector<std::shared_future<double>> futures_;

@@ -69,7 +69,7 @@ void ParallelSSM15066Estimator2D::init()
   for(unsigned int i=0;i<n_threads_;i++)
   {
     chains_[i] = chain_->clone();
-    queues_[i] = Queue();
+    queues_[i] = std::make_shared<Queue>();
   }
 
   pool_ = std::make_shared<BS::thread_pool>(n_threads_);
@@ -84,16 +84,16 @@ void ParallelSSM15066Estimator2D::resetQueues()
   assert(pool_->get_tasks_queued () == 0);
   assert(pool_->get_tasks_running() == 0);
 
-  std::for_each(queues_.begin(),queues_.end(),[&](Queue& queue){
-    queue.reset();
+  std::for_each(queues_.begin(),queues_.end(),[&](QueuePtr& queue){
+    queue->reset();
   });
 
   running_threads_ = 0;
 
   assert([&]() ->bool{
-           for(const Queue& queue:queues_)
+           for(const QueuePtr& queue:queues_)
            {
-             if(queue.queue_.size() != 0)
+             if(queue->queue_.size() != 0)
              {
                return false;
              }
@@ -122,7 +122,7 @@ unsigned int ParallelSSM15066Estimator2D::fillQueues(const Eigen::VectorXd& q1, 
       all_threads = true;
     }
 
-    queues_[thread_iter].insert(q);
+    queues_[thread_iter]->insert(q);
 
     n_addends++;
     thread_iter++;
@@ -143,7 +143,6 @@ unsigned int ParallelSSM15066Estimator2D::fillQueues(const Eigen::VectorXd& q1, 
              return false;
            }
          }());
-  assert(n_addends == iter+1);
 
   if(all_threads)
     running_threads_ = n_threads_;
@@ -160,6 +159,13 @@ double ParallelSSM15066Estimator2D::computeScalingFactor(const Eigen::VectorXd& 
 
   if(obstacles_positions_.cols()==0)  //no obstacles in the scene
     return 1.0;
+
+  if(verbose_>0)
+  {
+    ROS_ERROR_STREAM("number of obstacles: "<<obstacles_positions_.cols()<<", number of poi: "<<poi_names_.size());
+    for(unsigned int i=0;i<obstacles_positions_.cols();i++)
+      ROS_ERROR_STREAM("obs location -> "<<obstacles_positions_.col(i).transpose());
+  }
 
   tic_init = ros::WallTime::now();
   tic = ros::WallTime::now();
@@ -180,6 +186,28 @@ double ParallelSSM15066Estimator2D::computeScalingFactor(const Eigen::VectorXd& 
    * move at (t_i/slowest_joint_time)*max_speed_i, where slowest_joint_time >= t_i */
   double slowest_joint_time = (inv_max_speed_.cwiseProduct(q2 - q1)).cwiseAbs().maxCoeff();
   dq_max_ = (q2-q1)/slowest_joint_time;
+
+  assert([&]() ->bool{
+           Eigen::VectorXd q_v  = (q2-q1)/(q2-q1).norm();
+           Eigen::VectorXd dq_v = dq_max_/dq_max_.norm();
+
+           double err = (q_v-dq_v).norm();
+           if(err<1e-08)
+           {
+             return true;
+           }
+           else
+           {
+             ROS_ERROR_STREAM("q_v "<<q_v.transpose()<<" dq_v "<<dq_v.transpose()<<" err "<<err<<" slowest time "<<slowest_joint_time);
+             ROS_ERROR_STREAM("q1 "<<q1.transpose()<<" q2 "<<q2.transpose()<<" dq_inv "<<inv_max_speed_.transpose());
+
+             return false;
+           }
+         }());
+
+
+  if(verbose_>0)
+    ROS_ERROR_STREAM("joint velocity "<<dq_max_.norm());
 
   stop_ = false; //must be after resetQueues()
 
@@ -239,7 +267,7 @@ double ParallelSSM15066Estimator2D::computeScalingFactorAsync(const unsigned int
   rosdyn::ChainPtr chain = chains_[idx_queue];
 
   sum_scaling_factor = 0.0;
-  for(const Eigen::VectorXd& q: queues_[idx_queue].queue_)
+  for(const Eigen::VectorXd& q: queues_[idx_queue]->queue_)
   {
     min_scaling_factor_of_q = 1.0;
 
@@ -268,6 +296,8 @@ double ParallelSSM15066Estimator2D::computeScalingFactorAsync(const unsigned int
           v_safety = safeVelocity(distance);
           scaling_factor = v_safety/tangential_speed; // no division by 0
 
+          assert(v_safety>=0.0);
+
           if(scaling_factor<1e-02)
           {
             stop_ = true;
@@ -295,10 +325,10 @@ double ParallelSSM15066Estimator2D::computeScalingFactorAsync(const unsigned int
 
         if(stop_)
           break;
-      } // end robot poi for loop
+      } // end robot poi for-loop
       if(stop_)
         break;
-    } // end obstacles for loop
+    } // end obstacles for-loop
 
     if(verbose_>0)
     {
@@ -321,7 +351,7 @@ double ParallelSSM15066Estimator2D::computeScalingFactorAsync(const unsigned int
 
     if(stop_)
       break;
-  } //end q in queue for loop
+  } //end q in queue for-loop
 
   return sum_scaling_factor;
 }
@@ -330,9 +360,14 @@ SSM15066EstimatorPtr ParallelSSM15066Estimator2D::clone()
 {
   ParallelSSM15066Estimator2DPtr clone = std::make_shared<ParallelSSM15066Estimator2D>(chain_->clone(),max_step_size_,obstacles_positions_,n_threads_);
 
-  clone->setMaxCartAcc(max_cart_acc_);
-  clone->setMinDistance(min_distance_);
+  clone->setPoiNames(poi_names_);
   clone->setMaxStepSize(max_step_size_);
+  clone->setObstaclesPositions(obstacles_positions_);
+
+  clone->setMaxCartAcc(max_cart_acc_,false);
+  clone->setMinDistance(min_distance_,false);
+  clone->setReactionTime(reaction_time_,false);
+  clone->setHumanVelocity(human_velocity_,false);
 
   clone->updateMembers();
 

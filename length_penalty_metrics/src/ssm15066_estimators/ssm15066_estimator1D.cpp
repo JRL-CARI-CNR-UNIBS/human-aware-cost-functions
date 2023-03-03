@@ -128,9 +128,14 @@ SSM15066EstimatorPtr SSM15066Estimator1D::clone()
 {
   SSM15066Estimator1DPtr clone = std::make_shared<SSM15066Estimator1D>(chain_->clone(),max_step_size_,obstacles_positions_);
 
-  clone->setMaxCartAcc(max_cart_acc_);
-  clone->setMinDistance(min_distance_);
+  clone->setPoiNames(poi_names_);
   clone->setMaxStepSize(max_step_size_);
+  clone->setObstaclesPositions(obstacles_positions_);
+
+  clone->setMaxCartAcc(max_cart_acc_,false);
+  clone->setMinDistance(min_distance_,false);
+  clone->setReactionTime(reaction_time_,false);
+  clone->setHumanVelocity(human_velocity_,false);
 
   clone->updateMembers();
 

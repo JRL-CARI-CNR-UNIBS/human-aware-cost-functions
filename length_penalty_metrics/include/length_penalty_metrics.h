@@ -45,7 +45,7 @@ typedef std::shared_ptr<LengthPenaltyMetrics> LengthPenaltyMetricsPtr;
  *
  *                            c(q1,q2) = ||q2-q1||*lambda,
  *
- *          where lambda = (1+(t_safety - t_nom)/t_nom) ~= max(v_safety/v_r, 1)
+ *          where lambda = (1+(t_safety - t_nom)/t_nom) ~= max(v_r/v_safety, 1)
 */
 
 class LengthPenaltyMetrics: public Metrics

@@ -44,7 +44,7 @@ double LengthPenaltyMetrics::cost(const Eigen::VectorXd& configuration1,
 {
   double scaling_factor;
   if(configuration1 == configuration2)
-    scaling_factor = 1.0;
+    scaling_factor = 1.0;  //cost will be zero..
   else
     scaling_factor = ssm15066_estimator_->computeScalingFactor(configuration1,configuration2);
 
@@ -72,7 +72,7 @@ double LengthPenaltyMetrics::cost(const Eigen::VectorXd& configuration1,
   else
     lambda = 1.0/scaling_factor;
 
-  return (Metrics::cost(configuration1, configuration2))*lambda;
+  return (Metrics::cost(configuration1,configuration2))*lambda;
 }
 
 double LengthPenaltyMetrics::utopia(const NodePtr& node1,
@@ -90,7 +90,7 @@ double LengthPenaltyMetrics::utopia(const Eigen::VectorXd& configuration1,
 
 MetricsPtr LengthPenaltyMetrics::clone()
 {
-  ssm15066_estimator::SSM15066EstimatorPtr ssm15066_estimator_cloned =ssm15066_estimator_->clone();
+  ssm15066_estimator::SSM15066EstimatorPtr ssm15066_estimator_cloned = ssm15066_estimator_->clone();
   return std::make_shared<LengthPenaltyMetrics>(ssm15066_estimator_cloned);
 }
 
