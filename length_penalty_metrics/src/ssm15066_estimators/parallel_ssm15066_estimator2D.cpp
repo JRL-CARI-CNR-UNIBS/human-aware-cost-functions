@@ -84,19 +84,16 @@ void ParallelSSM15066Estimator2D::resetQueues()
   assert(pool_->get_tasks_queued () == 0);
   assert(pool_->get_tasks_running() == 0);
 
-  std::for_each(queues_.begin(),queues_.end(),[&](QueuePtr& queue){
+  for(const QueuePtr& queue:queues_)
     queue->reset();
-  });
 
   running_threads_ = 0;
 
   assert([&]() ->bool{
            for(const QueuePtr& queue:queues_)
            {
-             if(queue->queue_.size() != 0)
-             {
-               return false;
-             }
+             if(not queue->queue_.empty())
+             return false;
            }
            return true;
          }());
@@ -104,23 +101,31 @@ void ParallelSSM15066Estimator2D::resetQueues()
 
 unsigned int ParallelSSM15066Estimator2D::fillQueues(const Eigen::VectorXd& q1, const Eigen::VectorXd q2)
 {
-  bool all_threads = false;
   unsigned int n_addends = 0;
   unsigned int thread_iter = 0;
-  unsigned int iter = std::max(std::ceil((q2-q1).norm()/max_step_size_),1.0);
+
+  Eigen::VectorXd connection_vector = q2-q1;
+  unsigned int iter = std::max(std::ceil(connection_vector.norm()/max_step_size_),1.0);
 
   Eigen::VectorXd q;
-  Eigen::VectorXd delta_q = (q2-q1)/iter;
+  Eigen::VectorXd delta_q = connection_vector/iter;
+
+  assert([&]() ->bool{
+           for(const QueuePtr& queue: queues_)
+           {
+             if(not queue->queue_.empty())
+             return false;
+           }
+
+           return true;
+         }());
 
   for(unsigned int i=0;i<iter+1;i++)
   {
     q = q1+i*delta_q;
 
     if(thread_iter>=n_threads_)
-    {
       thread_iter = 0;
-      all_threads = true;
-    }
 
     queues_[thread_iter]->insert(q);
 
@@ -144,21 +149,39 @@ unsigned int ParallelSSM15066Estimator2D::fillQueues(const Eigen::VectorXd& q1, 
            }
          }());
 
-  if(all_threads)
+  if(n_addends>n_threads_)
     running_threads_ = n_threads_;
   else
-    running_threads_ = thread_iter;
+    running_threads_ = n_addends;
+
+  if(verbose_>0)
+  {
+    for(unsigned int i=0;i<queues_.size();i++)
+    {
+      ROS_WARN_STREAM("QUEUE "<<i);
+      for(const Eigen::VectorXd& q:queues_[i]->queue_)
+        ROS_INFO_STREAM(q.transpose());
+    }
+  }
 
   return n_addends;
 }
 
 double ParallelSSM15066Estimator2D::computeScalingFactor(const Eigen::VectorXd& q1, const Eigen::VectorXd& q2)
 {
+  if(verbose_>0)
+    ROS_WARN("--------");
+
   ros::WallTime tic, tic_init, toc;
   double time_tot, time_reset, time_fill, time_thread, time_join;
 
   if(obstacles_positions_.cols()==0)  //no obstacles in the scene
+  {
+    if(verbose_>0)
+      ROS_ERROR("--------");
+
     return 1.0;
+  }
 
   if(verbose_>0)
   {
@@ -179,16 +202,22 @@ double ParallelSSM15066Estimator2D::computeScalingFactor(const Eigen::VectorXd& 
   time_fill = (toc-tic).toSec();
 
   if(n_addends == 0)
+  {
+    if(verbose_>0)
+      ROS_ERROR("--------");
+
     return 1.0;
+  }
 
   /* Compute the time of each joint to move from q1 to q2 at its maximum speed and consider the longest time
    * The "slowest" joint will move at its highest speed while the other ones will
    * move at (t_i/slowest_joint_time)*max_speed_i, where slowest_joint_time >= t_i */
+  Eigen::VectorXd connection_vector = q2-q1;
   double slowest_joint_time = (inv_max_speed_.cwiseProduct(q2 - q1)).cwiseAbs().maxCoeff();
-  dq_max_ = (q2-q1)/slowest_joint_time;
+  dq_max_ = connection_vector/slowest_joint_time;
 
   assert([&]() ->bool{
-           Eigen::VectorXd q_v  = (q2-q1)/(q2-q1).norm();
+           Eigen::VectorXd q_v  = connection_vector/connection_vector.norm();
            Eigen::VectorXd dq_v = dq_max_/dq_max_.norm();
 
            double err = (q_v-dq_v).norm();
@@ -205,7 +234,6 @@ double ParallelSSM15066Estimator2D::computeScalingFactor(const Eigen::VectorXd& 
            }
          }());
 
-
   if(verbose_>0)
     ROS_ERROR_STREAM("joint velocity "<<dq_max_.norm());
 
@@ -217,62 +245,81 @@ double ParallelSSM15066Estimator2D::computeScalingFactor(const Eigen::VectorXd& 
   toc = ros::WallTime::now();
   time_thread = (toc-tic).toSec();
 
+  assert(pool_->get_tasks_total() <= running_threads_);
+
   double queue_sum;
   double sum_scaling_factors = 0.0;
   tic = ros::WallTime::now();
+
+  pool_->wait_for_tasks();
   for(unsigned int i=0;i<running_threads_;i++)
   {
     queue_sum = futures_[i].get();
+    sum_scaling_factors += queue_sum;
 
-    if(queue_sum == 0.0)
-      return 0.0;
-    else
-      sum_scaling_factors += queue_sum;
+    if(verbose_>0)
+      ROS_INFO_STREAM("thread "<<i<<" finished");
   }
+  stop_ = true;
+
   toc = ros::WallTime::now();
   time_join = (toc-tic).toSec();
   time_tot = (toc-tic_init).toSec();
 
+  assert([&]() ->bool{
+           if(pool_->get_tasks_running() != 0)
+           {
+             ROS_INFO_STREAM("running threads "<<pool_->get_tasks_running());
+             return false;
+           }
+           return true;
+         }());
+
   double scaling_factor = (sum_scaling_factors/((double) n_addends));
 
   assert([&]() ->bool{
-           if(scaling_factor<=1 && scaling_factor>=0)
+           if(scaling_factor>=1.0)
            {
              return true;
            }
            else
            {
              ROS_INFO_STREAM("Scaling factor "<<scaling_factor);
-             ROS_INFO_STREAM("sum "<<sum_scaling_factors<<" addends "<<(double) n_addends<<" iter "<< std::max(std::ceil((q2-q1).norm()/max_step_size_),1.0));
+             ROS_INFO_STREAM("sum "<<sum_scaling_factors<<" addends "<<(double) n_addends<<" iter "<< std::max(std::ceil(connection_vector.norm()/max_step_size_),1.0));
              return false;
            }
          }());
 
   if(verbose_>0)
   {
+    if(verbose_>1)
+      ROS_INFO_STREAM("time reset queues "<<(time_reset/time_tot)*100<<"% || time fill queues "<<(time_fill/time_tot)*100<<"% || time threads creation "<<(time_thread/time_tot)*100<<"% || time executions "<<(time_join/time_tot)*100<<"%");
 
-    ROS_INFO_STREAM("sum_scaling_factors "<<sum_scaling_factors<<" n_addends "<<(double) n_addends<<" res "<<scaling_factor);
-    ROS_INFO_STREAM("time reset queues "<<(time_reset/time_tot)*100<<"% || time fill queues "<<(time_fill/time_tot)*100<<"% || time threads creation "<<(time_thread/time_tot)*100<<"% || time executions "<<(time_join/time_tot)*100<<"%");
+    ROS_ERROR("--------");
   }
+
   return scaling_factor;
 }
 
 double ParallelSSM15066Estimator2D::computeScalingFactorAsync(const unsigned int& idx_queue)
 {
-  Eigen::Vector3d distance_vector, tmp_distance_vector;
-  std::vector<Eigen::Affine3d, Eigen::aligned_allocator<Eigen::Affine3d>> poi_poses_in_base, tmp_pose;
-  std::vector<Eigen::Vector6d, Eigen::aligned_allocator<Eigen::Vector6d>> poi_twist_in_base, tmp_twist;
-  double distance, tangential_speed, v_safety, scaling_factor, min_scaling_factor_of_q, sum_scaling_factor, tmp_speed;
+  Eigen::Vector3d distance_vector;
+  std::vector<Eigen::Affine3d, Eigen::aligned_allocator<Eigen::Affine3d>> poi_poses_in_base;
+  std::vector<Eigen::Vector6d, Eigen::aligned_allocator<Eigen::Vector6d>> poi_twist_in_base;
+  double distance, tangential_speed, v_safety, scaling_factor, max_scaling_factor_of_q, sum_scaling_factor;
 
   rosdyn::ChainPtr chain = chains_[idx_queue];
 
   sum_scaling_factor = 0.0;
   for(const Eigen::VectorXd& q: queues_[idx_queue]->queue_)
   {
-    min_scaling_factor_of_q = 1.0;
+    max_scaling_factor_of_q = 1.0;
 
     poi_twist_in_base = chain->getTwist(q,dq_max_);
     poi_poses_in_base = chain->getTransformations(q);
+
+    if(verbose_>0)
+      ROS_INFO_STREAM("q -> "<<q.transpose()<<" from queue "<<idx_queue);
 
     for(Eigen::Index i_obs=0;i_obs<obstacles_positions_.cols();i_obs++)
     {
@@ -294,34 +341,31 @@ double ParallelSSM15066Estimator2D::computeScalingFactorAsync(const unsigned int
         else if(distance>min_distance_)
         {
           v_safety = safeVelocity(distance);
-          scaling_factor = v_safety/tangential_speed; // no division by 0
+
+          if(v_safety == 0.0)
+          {
+            if(verbose_>0)
+              ROS_INFO("stop -> v_safety = 0");
+
+            stop_ = true;
+            return std::numeric_limits<double>::infinity();
+          }
+          else
+            scaling_factor = tangential_speed/v_safety; // no division by 0
 
           assert(v_safety>=0.0);
-
-          if(scaling_factor<1e-02)
-          {
-            stop_ = true;
-            return 0.0;
-          }
         }
-        else  // distance<=min_distance -> you have found the minimum scaling factor, return
+        else  // distance<=min_distance -> you have found the maximum scaling factor, return
         {
-          stop_ = true;
-          return 0.0;
-        }
-
-        if(scaling_factor<min_scaling_factor_of_q)
-        {
-          min_scaling_factor_of_q = scaling_factor;
-
           if(verbose_>0)
-          {
-            tmp_distance_vector = distance_vector;
-            tmp_speed = tangential_speed;
-            tmp_pose = poi_poses_in_base;
-            tmp_twist = poi_twist_in_base;
-          }
+            ROS_INFO("stop -> distance < min_distance");
+
+          stop_ = true;
+          return std::numeric_limits<double>::infinity();
         }
+
+        if(scaling_factor>max_scaling_factor_of_q)
+          max_scaling_factor_of_q = scaling_factor;
 
         if(stop_)
           break;
@@ -331,23 +375,9 @@ double ParallelSSM15066Estimator2D::computeScalingFactorAsync(const unsigned int
     } // end obstacles for-loop
 
     if(verbose_>0)
-    {
-      mtx_.lock();
-      ROS_INFO_STREAM("q "<<q.transpose()<<" || dist vector: "<<tmp_distance_vector.transpose()<<" || tangential speed: "<<tmp_speed<<
-                      " || scaling factor at q: "<<min_scaling_factor_of_q);
+      ROS_INFO_STREAM("q "<<q.transpose()<<" -> scaling factor: "<<max_scaling_factor_of_q);
 
-      if(verbose_ == 2)
-      {
-        for(Eigen::Affine3d p:poi_poses_in_base)
-          ROS_INFO_STREAM("POI poses \n"<<p.matrix());
-
-        for(Eigen::Vector6d t:tmp_twist)
-          ROS_INFO_STREAM("POI twists "<<t.transpose());
-      }
-      mtx_.unlock();
-    }
-
-    sum_scaling_factor += min_scaling_factor_of_q;
+    sum_scaling_factor += max_scaling_factor_of_q;
 
     if(stop_)
       break;

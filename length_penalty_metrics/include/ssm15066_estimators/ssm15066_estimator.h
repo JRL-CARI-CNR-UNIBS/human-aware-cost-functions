@@ -38,7 +38,8 @@ typedef std::shared_ptr<SSM15066Estimator> SSM15066EstimatorPtr;
 /**
   * @brief The SSM15066Estimator class is a template for safety related velocity scaling factor (SSM ISO/TS-15066) estimator.
   * The goal is to compute an approximation of the average scaling factor that the robot will experiment moving from a
-  * configuration q1 to a configuration q2, given the obstacles positions (e.g., human's head, arms and torso positions)
+  * configuration q1 to a configuration q2, given the obstacles positions (e.g., human's head, arms and torso positions).
+  * The scaling factor is a value from 1.0 to infinite and it is computed as v_r/v_safety.
   */
 class SSM15066Estimator
 {
@@ -159,10 +160,29 @@ public:
     if(update)
       updateMembers();
   }
+  void setPoiNames(const std::vector<std::string> poi_names)
+  {
+    if(poi_names.empty())
+    {
+      ROS_ERROR("Poi names void");
+      return;
+    }
+    poi_names_ = poi_names;
+  }
 
   void setMaxStepSize(const double& max_step_size);
   void setVerbose(const unsigned int& verbose){verbose_ = verbose;}
-  void setPoiNames(const std::vector<std::string> poi_names){poi_names_ = poi_names;}
+
+  /**
+    Getters
+   */
+  rosdyn::ChainPtr         getChain        (){return chain_         ;}
+  std::vector<std::string> getPoiNames     (){return poi_names_     ;}
+  double                   getMaxCartAcc   (){return max_cart_acc_  ;}
+  double                   getMinDistance  (){return min_distance_  ;}
+  double                   getMaxStepSize  (){return max_step_size_ ;}
+  double                   getReactionTime (){return reaction_time_ ;}
+  double                   getHumanVelocity(){return human_velocity_;}
 
   /**
    * @brief getObstaclePosition return the obstacles positions matrix
@@ -190,9 +210,11 @@ public:
   /**
    * @brief computeWorstCaseScalingFactor computes an approximation of the average scaling factor the robot will experience travelling from
    * q1 to q2, according to SSM ISO-15066. The maximum robot joints' velocities are considered for this computation.
+   * The scaling factor is computed as the average of the scaling factor at each qi between q1 and q2. The scaling factor of qi
+   * is measurd as v_r(i)/v_safety(i).
    * @param q1.
    * @param q2.
-   * @return 0 if a point q in (q1,q2) is associated with a 0 scaling factor, the average scaling factor otherwise.
+   * @return the average scaling factor.
    */
   virtual double computeScalingFactor(const Eigen::VectorXd& q1, const Eigen::VectorXd& q2) = 0;
 

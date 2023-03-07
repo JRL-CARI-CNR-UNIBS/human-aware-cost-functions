@@ -42,20 +42,20 @@ double LengthPenaltyMetrics::cost(const NodePtr& node1,
 double LengthPenaltyMetrics::cost(const Eigen::VectorXd& configuration1,
                                   const Eigen::VectorXd& configuration2)
 {
-  double scaling_factor;
+  double lambda; //average scaling factor computed on connection (conf1,conf2)
   if(configuration1 == configuration2)
-    scaling_factor = 1.0;  //cost will be zero..
+    lambda = 1.0;  //cost will be zero..
   else
-    scaling_factor = ssm15066_estimator_->computeScalingFactor(configuration1,configuration2);
+    lambda = ssm15066_estimator_->computeScalingFactor(configuration1,configuration2);
 
   assert([&]() ->bool{
-           if(scaling_factor>=0.0 && scaling_factor <=1.0)
+           if(lambda>=1.0)
            {
              return true;
            }
            else
            {
-             ROS_INFO_STREAM("Scaling factor "<<scaling_factor);
+             ROS_INFO_STREAM("Scaling factor "<<lambda);
              ROS_YELLOW_STREAM("Recomputing scaling factor with verbose");
              ssm15066_estimator_->setVerbose(1);
              ssm15066_estimator_->computeScalingFactor(configuration1,configuration2);
@@ -63,14 +63,8 @@ double LengthPenaltyMetrics::cost(const Eigen::VectorXd& configuration1,
            }
          }());
 
-  double lambda;
-  if(scaling_factor == 0)
-  {
+  if(lambda == std::numeric_limits<double>::infinity()) //set high cost but not infinite (infinity is used to signal an obstruction)
     lambda = lambda_penalty_;
-    // lambda = std::numeric_limits<double>::max(); //lambda = std::numeric_limits<double>::infinity();
-  }
-  else
-    lambda = 1.0/scaling_factor;
 
   return (Metrics::cost(configuration1,configuration2))*lambda;
 }

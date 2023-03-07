@@ -61,7 +61,7 @@ double SSM15066Estimator1D::computeScalingFactor(const Eigen::VectorXd& q1, cons
 
   double sum_scaling_factor = 0.0;
 
-  double min_distance, velocity, scaling_factor, min_scaling_factor_of_q, v_safety;
+  double min_distance, velocity, scaling_factor, max_scaling_factor_of_q, v_safety;
   std::vector< Eigen::Vector6d, Eigen::aligned_allocator<Eigen::Vector6d>> poi_twist_in_base;
 
   /* Compute the time of each joint to move from q1 to q2 at its maximum speed and consider the longest time */
@@ -79,12 +79,14 @@ double SSM15066Estimator1D::computeScalingFactor(const Eigen::VectorXd& q1, cons
   for(unsigned int i=0;i<iter+1;i++)
   {
     q = q1+i*delta_q;
-    min_scaling_factor_of_q = 1.0;
+    max_scaling_factor_of_q = 1.0;
 
     poi_twist_in_base = chain_->getTwist(q,dq);
     min_distance = min_distance_solver_->computeMinDistance(q)->distance_;
 
     v_safety = safeVelocity(min_distance);
+    if(v_safety == 0.0)
+      return std::numeric_limits<double>::infinity();
 
     for(size_t i_poi=0;i_poi<poi_twist_in_base.size();i_poi++)
     {
@@ -100,27 +102,26 @@ double SSM15066Estimator1D::computeScalingFactor(const Eigen::VectorXd& q1, cons
       }
       else if(min_distance>min_distance_)
       {
-        scaling_factor = v_safety/velocity; // no division by 0
+        scaling_factor = velocity/v_safety; // no division by 0
 
-        if(scaling_factor < 1e-02)
-          return 0.0;
+        if(scaling_factor > 100)
+          return std::numeric_limits<double>::infinity();
       }
-      else  // distance<=min_distance -> you have found the minimum scaling factor, return
+      else  // distance<=min_distance -> you have found the maximum scaling factor, return
       {
-        return 0.0;  //if one point q has 0.0 scaling factor, return it
+        return std::numeric_limits<double>::infinity();  //if one point q has 0.0 scaling factor, return it
       }
 
-      if(scaling_factor<min_scaling_factor_of_q)
-      {
-        min_scaling_factor_of_q = scaling_factor;
-      }
+      if(scaling_factor>max_scaling_factor_of_q)
+        max_scaling_factor_of_q = scaling_factor;
+
     } // end robot poi for loop
 
-    sum_scaling_factor += min_scaling_factor_of_q;
+    sum_scaling_factor += max_scaling_factor_of_q;
   }
   assert((q2-q).norm()<1e-08);
 
-  // return the average scaling factor (if no q have zero scaling factor)
+  // return the average scaling factor
   return sum_scaling_factor/((double) iter+1);
 }
 

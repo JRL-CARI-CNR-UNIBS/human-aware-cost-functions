@@ -50,8 +50,15 @@ protected:
   {
     std::vector<Eigen::VectorXd, Eigen::aligned_allocator<Eigen::VectorXd> > queue_; //don't remove spaces
 
-    void reset(){queue_.clear();}
-    void insert(const Eigen::VectorXd& q){queue_.push_back(q);}
+    void reset()
+    {
+      queue_.clear();
+      assert(queue_.empty());
+    }
+    void insert(const Eigen::VectorXd& q)
+    {
+      queue_.push_back(q);
+    }
   };
   typedef std::shared_ptr<Queue> QueuePtr;
 
@@ -111,6 +118,7 @@ public:
                             const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions,
                             const unsigned int& n_threads=std::thread::hardware_concurrency());
 
+  unsigned int getNumberOfThreads(){return n_threads_;}
   double computeScalingFactor(const Eigen::VectorXd& q1, const Eigen::VectorXd& q2) override;
   SSM15066EstimatorPtr clone() override;
 

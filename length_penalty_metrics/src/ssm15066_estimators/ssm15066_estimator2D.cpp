@@ -51,19 +51,20 @@ double SSM15066Estimator2D::computeScalingFactor(const Eigen::VectorXd& q1, cons
   double sum_scaling_factor = 0.0;
 
   Eigen::Vector3d distance_vector;
-  double distance, tangential_speed, scaling_factor, min_scaling_factor_of_q, v_safety;
+  double distance, tangential_speed, scaling_factor, max_scaling_factor_of_q, v_safety;
   std::vector<Eigen::Affine3d, Eigen::aligned_allocator<Eigen::Affine3d>>  poi_poses_in_base;
   std::vector< Eigen::Vector6d, Eigen::aligned_allocator<Eigen::Vector6d>> poi_twist_in_base;
 
   /* Compute the time of each joint to move from q1 to q2 at its maximum speed and consider the longest time */
-  double slowest_joint_time = (inv_max_speed_.cwiseProduct(q2 - q1)).cwiseAbs().maxCoeff();
+  Eigen::VectorXd connection_vector = (q2-q1);
+  double slowest_joint_time = (inv_max_speed_.cwiseProduct(connection_vector)).cwiseAbs().maxCoeff();
 
   /* The "slowest" joint will move at its highest speed while the other ones will
    * move at (t_i/slowest_joint_time)*max_speed_i, where slowest_joint_time >= t_i */
-  Eigen::VectorXd dq = (q2-q1)/slowest_joint_time;
+  Eigen::VectorXd dq = connection_vector/slowest_joint_time;
 
   assert([&]() ->bool{
-           Eigen::VectorXd q_v  = (q2-q1)/(q2-q1).norm();
+           Eigen::VectorXd q_v  = connection_vector/connection_vector.norm();
            Eigen::VectorXd dq_v = dq/dq.norm();
 
            double err = (q_v-dq_v).norm();
@@ -83,16 +84,16 @@ double SSM15066Estimator2D::computeScalingFactor(const Eigen::VectorXd& q1, cons
   if(verbose_>0)
     ROS_ERROR_STREAM("joint velocity "<<dq.norm());
 
-  unsigned int iter = std::max(std::ceil((q2-q1).norm()/max_step_size_),1.0);
+  unsigned int iter = std::max(std::ceil((connection_vector).norm()/max_step_size_),1.0);
 
   Eigen::VectorXd q;
-  Eigen::VectorXd delta_q = (q2-q1)/iter;
+  Eigen::VectorXd delta_q = connection_vector/iter;
 
   for(unsigned int i=0;i<iter+1;i++)
   {
     q = q1+i*delta_q;
 
-    min_scaling_factor_of_q = 1.0;
+    max_scaling_factor_of_q = 1.0;
 
     poi_twist_in_base = chain_->getTwist(q,dq);
     poi_poses_in_base = chain_->getTransformations(q);
@@ -120,45 +121,46 @@ double SSM15066Estimator2D::computeScalingFactor(const Eigen::VectorXd& q1, cons
         else if(distance>min_distance_)
         {
           v_safety = safeVelocity(distance);
-          scaling_factor = v_safety/tangential_speed; // no division by 0
+
+          if(v_safety == 0.0)
+          {
+            if(verbose_>0)
+              ROS_ERROR_STREAM("v_safety "<<v_safety<<" scaling factor inf");
+
+            return std::numeric_limits<double>::infinity();
+          }
+          else
+            scaling_factor = tangential_speed/v_safety; // no division by 0
 
           if(verbose_>0)
-            ROS_INFO_STREAM("v_safety "<<v_safety<<" scaling factor "<<scaling_factor);
+            ROS_ERROR_STREAM("v_safety "<<v_safety<<" scaling factor "<<scaling_factor);
 
           assert(v_safety>=0.0);
-
-          if(scaling_factor<1e-02)
-          {
-            if(verbose_)
-              ROS_ERROR("scaling factor close to 0");
-
-            return 0.0;
-          }
         }
-        else  // distance<=min_distance -> you have found the minimum scaling factor, return
+        else  // distance<=min_distance -> you have found the maximum scaling factor, return
         {
           if(verbose_)
-            ROS_ERROR("distance <= min_distance -> scaling factor 0");
+            ROS_ERROR("distance <= min_distance -> scaling factor inf");
 
-          return 0.0;  //if one point q has 0.0 scaling factor, return it
+          return std::numeric_limits<double>::infinity();
         }
 
         if(verbose_>0)
           ROS_ERROR_STREAM("scaling factor "<<scaling_factor);
 
-        if(scaling_factor<min_scaling_factor_of_q)
-          min_scaling_factor_of_q = scaling_factor;
+        if(scaling_factor>max_scaling_factor_of_q)
+          max_scaling_factor_of_q = scaling_factor;
 
       } // end robot poi for-loop
     } // end obstacles for-loop
 
     if(verbose_>0)
     {
-      ROS_ERROR_STREAM("q "<<q.transpose()<<" -> scaling factor "<<min_scaling_factor_of_q);
+      ROS_ERROR_STREAM("q "<<q.transpose()<<" -> scaling factor "<<max_scaling_factor_of_q);
       ROS_ERROR("------------");
     }
 
-    sum_scaling_factor += min_scaling_factor_of_q;
+    sum_scaling_factor += max_scaling_factor_of_q;
   } //end q for-loop
 
   assert([&]() ->bool{
@@ -170,8 +172,8 @@ double SSM15066Estimator2D::computeScalingFactor(const Eigen::VectorXd& q1, cons
            else
            {
              ROS_INFO_STREAM("error "<<err<<" q "<<q.transpose()<<" q2 "<<q2.transpose());
-             ROS_INFO_STREAM("q2-q1/step size "<<std::ceil((q2-q1).norm()/max_step_size_));
-             ROS_INFO_STREAM("ceil "<<std::ceil((q2-q1).norm()/max_step_size_));
+             ROS_INFO_STREAM("q2-q1/step size "<<std::ceil((connection_vector).norm()/max_step_size_));
+             ROS_INFO_STREAM("ceil "<<std::ceil((connection_vector).norm()/max_step_size_));
              ROS_INFO_STREAM("iter "<<iter);
              ROS_INFO_STREAM("delta "<<delta_q.transpose());
 
@@ -179,10 +181,10 @@ double SSM15066Estimator2D::computeScalingFactor(const Eigen::VectorXd& q1, cons
            }
          }());
 
-  // return the average scaling factor (if no q have zero scaling factor)
+  // return the average scaling factor
   double res = sum_scaling_factor/((double) iter+1);
   assert([&]() ->bool{
-           if(res>=0 && res<=1)
+           if(res>=1.0)
            {
              return true;
            }
