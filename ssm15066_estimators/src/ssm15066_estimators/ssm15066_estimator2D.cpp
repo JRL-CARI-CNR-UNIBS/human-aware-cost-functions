@@ -229,20 +229,22 @@ double SSM15066Estimator2D::computeScalingFactorAtQ(const Eigen::VectorXd& q, co
   return max_scaling_factor;
 }
 
-SSM15066EstimatorPtr SSM15066Estimator2D::clone()
+pathplan::CostPenaltyPtr SSM15066Estimator2D::clone()
 {
-  SSM15066Estimator2DPtr clone = std::make_shared<SSM15066Estimator2D>(chain_->clone(),max_step_size_,obstacles_positions_);
+  SSM15066Estimator2DPtr ssm_cloned = std::make_shared<SSM15066Estimator2D>(chain_->clone(),max_step_size_,obstacles_positions_);
 
-  clone->setPoiNames(poi_names_);
-  clone->setMaxStepSize(max_step_size_);
-  clone->setObstaclesPositions(obstacles_positions_);
+  ssm_cloned->setPoiNames(poi_names_);
+  ssm_cloned->setMaxStepSize(max_step_size_);
+  ssm_cloned->setObstaclesPositions(obstacles_positions_);
 
-  clone->setMaxCartAcc(max_cart_acc_,false);
-  clone->setMinDistance(min_distance_,false);
-  clone->setReactionTime(reaction_time_,false);
-  clone->setHumanVelocity(human_velocity_,false);
+  ssm_cloned->setMaxCartAcc(max_cart_acc_,false);
+  ssm_cloned->setMinDistance(min_distance_,false);
+  ssm_cloned->setReactionTime(reaction_time_,false);
+  ssm_cloned->setHumanVelocity(human_velocity_,false);
 
-  clone->updateMembers();
+  ssm_cloned->updateMembers();
+
+  pathplan::CostPenaltyPtr clone = ssm_cloned;
 
   return clone;
 }

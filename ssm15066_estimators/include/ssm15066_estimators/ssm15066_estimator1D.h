@@ -55,7 +55,7 @@ public:
   void setObstaclesPositions(const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions) override;
 
   virtual double computeScalingFactor(const Eigen::VectorXd& q1, const Eigen::VectorXd& q2) override;
-  virtual SSM15066EstimatorPtr clone() override;
+  virtual pathplan::CostPenaltyPtr clone() override;
 };
 
 }

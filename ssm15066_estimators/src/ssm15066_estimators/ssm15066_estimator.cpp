@@ -31,7 +31,7 @@ namespace ssm15066_estimator
 {
 
 SSM15066Estimator::SSM15066Estimator(const rosdyn::ChainPtr &chain, const double& max_step_size):
-  chain_(chain)
+  CostPenalty(), chain_(chain)
 {
   setMaxStepSize(max_step_size);
 

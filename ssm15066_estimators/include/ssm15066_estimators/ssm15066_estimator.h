@@ -29,6 +29,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ros/ros.h>
 #include <eigen3/Eigen/Core>
 #include <rosdyn_core/primitives.h>
+#include <length_penalty_metrics.h>
 
 namespace ssm15066_estimator
 {
@@ -40,8 +41,16 @@ typedef std::shared_ptr<SSM15066Estimator> SSM15066EstimatorPtr;
   * The goal is to compute an approximation of the average scaling factor that the robot will experiment moving from a
   * configuration q1 to a configuration q2, given the obstacles positions (e.g., human's head, arms and torso positions).
   * The scaling factor is a value from 1.0 to infinite and it is computed as v_r/v_safety.
+  *
+  * This class che be used with LenghPenaltyMetrics to penalize connections based on an estimation on how much the robot would be
+  * slown down by the safety velocity scaling unit, due to being close to an obstacle (e.g., human being) while crossing that connection.
+  * So, it computes an approximation of the average scaling factor (lambda) of the connection and then the cost is
+  *
+  *                            c(q1,q2) = ||q2-q1||*lambda,
+  *
+  * where lambda = (1+(t_safety - t_nom)/t_nom) ~= mean(max(v_r(i)/v_safety(i),1)) (>= 1.0) for each qi belonging to (q1,q2)
   */
-class SSM15066Estimator
+class SSM15066Estimator: public pathplan::CostPenalty
 {
 protected:
 
@@ -219,10 +228,15 @@ public:
   virtual double computeScalingFactor(const Eigen::VectorXd& q1, const Eigen::VectorXd& q2) = 0;
 
   /**
-   * @brief clone creates a copy of the object
-   * @return the cloned object
+   * From CostPenaltyClass
    */
-  virtual SSM15066EstimatorPtr clone() = 0;
+
+  virtual double computePenalty(const Eigen::VectorXd& q1, const Eigen::VectorXd& q2) override
+  {
+    return computeScalingFactor(q1,q2);
+  }
+
+  virtual pathplan::CostPenaltyPtr clone() = 0;
 };
 
 }

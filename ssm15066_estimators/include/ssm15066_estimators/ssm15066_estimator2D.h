@@ -60,7 +60,7 @@ public:
   virtual double computeScalingFactorAtQ(const Eigen::VectorXd& q, const Eigen::VectorXd& dq);
 
   virtual double computeScalingFactor(const Eigen::VectorXd& q1, const Eigen::VectorXd& q2) override;
-  virtual SSM15066EstimatorPtr clone() override;
+  virtual pathplan::CostPenaltyPtr clone() override;
 };
 
 }

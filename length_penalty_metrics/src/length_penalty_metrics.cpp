@@ -27,11 +27,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <length_penalty_metrics.h>
 
-
 namespace pathplan
 {
-LengthPenaltyMetrics::LengthPenaltyMetrics(const ssm15066_estimator::SSM15066EstimatorPtr &ssm15066_estimator):
-  Metrics(),ssm15066_estimator_(ssm15066_estimator){}
+LengthPenaltyMetrics::LengthPenaltyMetrics(const CostPenaltyPtr &penalizer):
+  Metrics(),penalizer_(penalizer){}
 
 double LengthPenaltyMetrics::cost(const NodePtr& node1,
                                   const NodePtr& node2)
@@ -42,11 +41,11 @@ double LengthPenaltyMetrics::cost(const NodePtr& node1,
 double LengthPenaltyMetrics::cost(const Eigen::VectorXd& configuration1,
                                   const Eigen::VectorXd& configuration2)
 {
-  double lambda; //average scaling factor computed on connection (conf1,conf2)
+  double lambda;
   if(configuration1 == configuration2)
     lambda = 1.0;  //cost will be zero..
   else
-    lambda = ssm15066_estimator_->computeScalingFactor(configuration1,configuration2);
+    lambda = penalizer_->getPenalty(configuration1,configuration2);
 
   assert([&]() ->bool{
            if(lambda>=1.0)
@@ -55,15 +54,15 @@ double LengthPenaltyMetrics::cost(const Eigen::VectorXd& configuration1,
            }
            else
            {
-             ROS_INFO_STREAM("Scaling factor "<<lambda);
-             ROS_YELLOW_STREAM("Recomputing scaling factor with verbose");
-             ssm15066_estimator_->setVerbose(1);
-             ssm15066_estimator_->computeScalingFactor(configuration1,configuration2);
+             ROS_INFO_STREAM("Lambda "<<lambda);
+             ROS_YELLOW_STREAM("Recomputing lambda with verbose");
+             penalizer_->setVerbose(1);
+             penalizer_->getPenalty(configuration1,configuration2);
              return false;
            }
          }());
 
-  if(lambda == std::numeric_limits<double>::infinity()) //set high cost but not infinite (infinity is used to signal an obstruction)
+  if(lambda == std::numeric_limits<double>::infinity()) //set high cost but not infinite (infinity is used to trigger an obstruction)
     lambda = lambda_penalty_;
 
   return (Metrics::cost(configuration1,configuration2))*lambda;
@@ -84,8 +83,8 @@ double LengthPenaltyMetrics::utopia(const Eigen::VectorXd& configuration1,
 
 MetricsPtr LengthPenaltyMetrics::clone()
 {
-  ssm15066_estimator::SSM15066EstimatorPtr ssm15066_estimator_cloned = ssm15066_estimator_->clone();
-  return std::make_shared<LengthPenaltyMetrics>(ssm15066_estimator_cloned);
+  CostPenaltyPtr penalizer_cloned = penalizer_->clone();
+  return std::make_shared<LengthPenaltyMetrics>(penalizer_cloned);
 }
 
 }

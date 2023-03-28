@@ -120,7 +120,7 @@ public:
 
   unsigned int getNumberOfThreads(){return n_threads_;}
   double computeScalingFactor(const Eigen::VectorXd& q1, const Eigen::VectorXd& q2) override;
-  SSM15066EstimatorPtr clone() override;
+  pathplan::CostPenaltyPtr clone() override;
 
 };
 

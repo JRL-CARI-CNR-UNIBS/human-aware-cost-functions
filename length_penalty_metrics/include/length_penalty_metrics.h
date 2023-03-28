@@ -28,39 +28,38 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <graph_core/metrics.h>
 #include <graph_core/graph/node.h>
-#include <ssm15066_estimators/ssm15066_estimator.h>
 
 namespace pathplan
 {
+class CostPenalty;
+typedef std::shared_ptr<CostPenalty> CostPenaltyPtr;
+
 class LengthPenaltyMetrics;
 typedef std::shared_ptr<LengthPenaltyMetrics> LengthPenaltyMetricsPtr;
 
 /**
- * @brief The LengthPenaltyMetrics class computes the Euclidean distance between two nodes and penalizes
- * it based on an estimation on how much the robot would be slown down by the safety velocity scaling
- * unit, due to being close to an obstacle (e.g., human being) while crossing that connection.
- * So, it computes an approximation of the average scaling factor (lambda) of the connection and then the cost is
+ * @brief The LengthPenaltyMetrics class computes the Euclidean distance between two nodes and penalizes it based on a penalty.
  *
- *                            c(q1,q2) = ||q2-q1||*lambda,
+ *                            c(q1,q2) = ||q2-q1||*lambda,     with lambda >= 1.0
  *
- * where lambda = (1+(t_safety - t_nom)/t_nom) ~= mean(max(v_r(i)/v_safety(i),1)) (>= 1.0) for each qi belonging to (q1,q2)
+ *        The penalty lambda is computed by the CostPenalty class.
 */
 
 class LengthPenaltyMetrics: public Metrics
 {
 protected:
-  ssm15066_estimator::SSM15066EstimatorPtr ssm15066_estimator_;
+  CostPenaltyPtr penalizer_;
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
   static constexpr double lambda_penalty_ = 1.0e12;
 
-  LengthPenaltyMetrics(const ssm15066_estimator::SSM15066EstimatorPtr& ssm15066_estimator);
+  LengthPenaltyMetrics(const CostPenaltyPtr& penalizer);
 
-  ssm15066_estimator::SSM15066EstimatorPtr getSSM()
+  CostPenaltyPtr getPenalizer()
   {
-    return ssm15066_estimator_;
+    return penalizer_;
   }
 
   virtual double cost(const NodePtr& node1,
@@ -79,4 +78,55 @@ public:
   virtual MetricsPtr clone();
 
 };
+
+/**
+ * @brief The CostPenalty class is a template class for the computation of the penalty lambda
+ */
+class CostPenalty
+{
+protected:
+  unsigned int verbose_;
+
+  /**
+   * @brief computePenalty computes the penalty
+   * @param q1 parent configuration
+   * @param q2 child configuration
+   * @return the penalty computed
+   */
+  virtual double computePenalty(const Eigen::VectorXd& q1, const Eigen::VectorXd& q2) = 0;
+
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+  CostPenalty()
+  {
+    verbose_ = 0;
+  }
+
+  virtual void setVerbose(const unsigned int& verbose)
+  {
+    verbose_ = verbose;
+  }
+
+  /**
+   * @brief getPenalty computes and return the penalty computed
+   * @param q1 parent configuration
+   * @param q2 child configuration
+   * @return the penalty computed
+   */
+  virtual double getPenalty(const Eigen::VectorXd& q1, const Eigen::VectorXd& q2)
+  {
+    double penalty = computePenalty(q1,q2);
+    assert(penalty >= 1.0);
+
+    return penalty;
+  }
+
+  /**
+   * @brief clone clones the object
+   * @return a cloned object
+   */
+  virtual CostPenaltyPtr clone() = 0;
+};
+
 }
