@@ -48,13 +48,6 @@ double SSM15066Estimator2D::computeScalingFactor(const Eigen::VectorXd& q1, cons
       ROS_ERROR_STREAM("obs location -> "<<obstacles_positions_.col(i).transpose());
   }
 
-  double sum_scaling_factor = 0.0;
-
-  Eigen::Vector3d distance_vector;
-  double distance, tangential_speed, scaling_factor, max_scaling_factor_of_q, v_safety;
-  std::vector<Eigen::Affine3d, Eigen::aligned_allocator<Eigen::Affine3d>>  poi_poses_in_base;
-  std::vector< Eigen::Vector6d, Eigen::aligned_allocator<Eigen::Vector6d>> poi_twist_in_base;
-
   /* Compute the time of each joint to move from q1 to q2 at its maximum speed and consider the longest time */
   Eigen::VectorXd connection_vector = (q2-q1);
   double slowest_joint_time = (inv_max_speed_.cwiseProduct(connection_vector)).cwiseAbs().maxCoeff();
@@ -89,79 +82,19 @@ double SSM15066Estimator2D::computeScalingFactor(const Eigen::VectorXd& q1, cons
   Eigen::VectorXd q;
   Eigen::VectorXd delta_q = connection_vector/iter;
 
+  double max_scaling_factor_of_q;
+  double sum_scaling_factor = 0.0;
+
   for(unsigned int i=0;i<iter+1;i++)
   {
     q = q1+i*delta_q;
+    max_scaling_factor_of_q = computeScalingFactorAtQ(q,dq);
 
-    max_scaling_factor_of_q = 1.0;
-
-    poi_twist_in_base = chain_->getTwist(q,dq);
-    poi_poses_in_base = chain_->getTransformations(q);
-
-    for(Eigen::Index i_obs=0;i_obs<obstacles_positions_.cols();i_obs++)
-    {
-      for(size_t i_poi=0;i_poi<poi_poses_in_base.size();i_poi++)
-      {
-        //consider only links inside the poi_names_ list
-        if(std::find(poi_names_.begin(),poi_names_.end(),links_names_[i_poi])>=poi_names_.end())
-          continue;
-
-        distance_vector = obstacles_positions_.col(i_obs)-poi_poses_in_base.at(i_poi).translation();
-        distance = distance_vector.norm();
-
-        tangential_speed = ((poi_twist_in_base.at(i_poi).block(0,0,3,1)).dot(distance_vector))/distance;
-
-        if(verbose_>0)
-          ROS_ERROR_STREAM("obs n "<< i_obs<<" poi n "<<i_poi<<" distance "<<distance<<" tangential speed "<<tangential_speed);
-
-        if(tangential_speed<=0)  // robot is going away
-        {
-          scaling_factor = 1.0;
-        }
-        else if(distance>min_distance_)
-        {
-          v_safety = safeVelocity(distance);
-
-          if(v_safety == 0.0)
-          {
-            if(verbose_>0)
-              ROS_ERROR_STREAM("v_safety "<<v_safety<<" scaling factor inf");
-
-            return std::numeric_limits<double>::infinity();
-          }
-          else
-            scaling_factor = tangential_speed/v_safety; // no division by 0
-
-          if(verbose_>0)
-            ROS_ERROR_STREAM("v_safety "<<v_safety<<" scaling factor "<<scaling_factor);
-
-          assert(v_safety>=0.0);
-        }
-        else  // distance<=min_distance -> you have found the maximum scaling factor, return
-        {
-          if(verbose_)
-            ROS_ERROR("distance <= min_distance -> scaling factor inf");
-
-          return std::numeric_limits<double>::infinity();
-        }
-
-        if(verbose_>0)
-          ROS_ERROR_STREAM("scaling factor "<<scaling_factor);
-
-        if(scaling_factor>max_scaling_factor_of_q)
-          max_scaling_factor_of_q = scaling_factor;
-
-      } // end robot poi for-loop
-    } // end obstacles for-loop
-
-    if(verbose_>0)
-    {
-      ROS_ERROR_STREAM("q "<<q.transpose()<<" -> scaling factor "<<max_scaling_factor_of_q);
-      ROS_ERROR("------------");
-    }
-
-    sum_scaling_factor += max_scaling_factor_of_q;
-  } //end q for-loop
+    if(max_scaling_factor_of_q == std::numeric_limits<double>::infinity())
+      return std::numeric_limits<double>::infinity();
+    else
+      sum_scaling_factor += max_scaling_factor_of_q;
+  }
 
   assert([&]() ->bool{
            double err = (q2-q).norm();
@@ -196,6 +129,104 @@ double SSM15066Estimator2D::computeScalingFactor(const Eigen::VectorXd& q1, cons
          }());
 
   return res;
+}
+
+double SSM15066Estimator2D::computeScalingFactorAtQ(const Eigen::VectorXd& q, const Eigen::VectorXd& dq)
+{
+  double distance, tangential_speed;
+  return computeScalingFactorAtQ(q,dq,tangential_speed,distance);
+}
+
+double SSM15066Estimator2D::computeScalingFactorAtQ(const Eigen::VectorXd& q, const Eigen::VectorXd& dq,  double& tangential_speed, double& distance)
+{
+  Eigen::Vector3d this_distance_vector;
+  double this_distance, this_tangential_speed, this_scaling_factor, max_scaling_factor, v_safety;
+
+  std::vector<Eigen::Vector6d, Eigen::aligned_allocator<Eigen::Vector6d>> poi_twist_in_base = chain_->getTwist(q,dq);
+  std::vector<Eigen::Affine3d, Eigen::aligned_allocator<Eigen::Affine3d>> poi_poses_in_base = chain_->getTransformations(q);
+
+  max_scaling_factor = 1.0;
+  tangential_speed = 0.0;
+  distance = std::numeric_limits<double>::infinity();
+
+  for(Eigen::Index i_obs=0;i_obs<obstacles_positions_.cols();i_obs++)
+  {
+    for(size_t i_poi=0;i_poi<poi_poses_in_base.size();i_poi++)
+    {
+      //consider only links inside the poi_names_ list
+      if(std::find(poi_names_.begin(),poi_names_.end(),links_names_[i_poi])>=poi_names_.end())
+        continue;
+
+      this_distance_vector = obstacles_positions_.col(i_obs)-poi_poses_in_base.at(i_poi).translation();
+      this_distance = this_distance_vector.norm();
+      this_tangential_speed = ((poi_twist_in_base.at(i_poi).block(0,0,3,1)).dot(this_distance_vector))/this_distance;
+
+      if(verbose_>0)
+        ROS_ERROR_STREAM("obs n "<< i_obs<<" poi n "<<i_poi<<" distance "<<this_distance<<" tangential speed "<<this_tangential_speed);
+
+      if(this_tangential_speed<=0)  // robot is going away
+      {
+        this_scaling_factor = 1.0;
+      }
+      else if(this_distance>min_distance_)
+      {
+        v_safety = safeVelocity(this_distance);
+
+        if(v_safety == 0.0)
+        {
+          if(verbose_>0)
+          {
+            ROS_ERROR_STREAM("v_safety "<<v_safety<<" scaling factor inf");
+            ROS_ERROR("-------- END q -----------");
+          }
+
+          distance = this_distance;
+          tangential_speed = this_tangential_speed;
+          return std::numeric_limits<double>::infinity();
+        }
+        else
+          this_scaling_factor = this_tangential_speed/v_safety; // no division by 0
+
+        if(verbose_>0)
+          ROS_ERROR_STREAM("v_safety "<<v_safety<<" scaling factor "<<this_scaling_factor);
+
+        assert(v_safety>=0.0);
+      }
+      else  // distance<=min_distance -> you have found the maximum scaling factor, return
+      {
+        if(verbose_)
+        {
+          ROS_ERROR("distance <= min_distance -> scaling factor inf");
+          ROS_ERROR("-------- END q -----------");
+        }
+
+        distance = this_distance;
+        tangential_speed = this_tangential_speed;
+        return std::numeric_limits<double>::infinity();
+      }
+
+      if(this_scaling_factor>=max_scaling_factor) //= to update distance and tangential speed outputs
+      {
+        max_scaling_factor = this_scaling_factor;
+        tangential_speed = this_tangential_speed;
+        distance = this_distance;
+      }
+
+      if(verbose_>0)
+      {
+        ROS_ERROR_STREAM("scaling factor "<<this_scaling_factor);
+        ROS_ERROR("---");
+      }
+    } // end robot poi for-loop
+  } // end obstacles for-loop
+
+  if(verbose_>0)
+  {
+    ROS_ERROR_STREAM("q "<<q.transpose()<<" -> scaling factor "<<max_scaling_factor);
+    ROS_ERROR("-------- END q -----------");
+  }
+
+  return max_scaling_factor;
 }
 
 SSM15066EstimatorPtr SSM15066Estimator2D::clone()

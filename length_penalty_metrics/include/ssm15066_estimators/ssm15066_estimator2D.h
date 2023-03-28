@@ -48,6 +48,17 @@ public:
   SSM15066Estimator2D(const rosdyn::ChainPtr &chain, const double& max_step_size,
                     const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions);
 
+  /**
+   * @brief computeScalingFactorAtQ computes the scaling factor given configuration q and velocity vector dq
+   * @param q robot configuration
+   * @param dq robot joint velocity vector
+   * @param tangential_speed is the components of the velocity of the robot towards the human (0.0 by default)
+   * @param distance is the human-robot distance (inf by default)
+   * @return the estimated scaling factor (1.0 by default)
+   */
+  virtual double computeScalingFactorAtQ(const Eigen::VectorXd& q, const Eigen::VectorXd& dq, double& tangential_speed, double& distance);
+  virtual double computeScalingFactorAtQ(const Eigen::VectorXd& q, const Eigen::VectorXd& dq);
+
   virtual double computeScalingFactor(const Eigen::VectorXd& q1, const Eigen::VectorXd& q2) override;
   virtual SSM15066EstimatorPtr clone() override;
 };
