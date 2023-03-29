@@ -130,7 +130,12 @@ protected:
     assert(term1_ == std::pow(human_velocity_,2.0)+std::pow(max_cart_acc_*reaction_time_,2.0)-2.0*max_cart_acc_*min_distance_);
     assert(term2_ == -max_cart_acc_*reaction_time_-human_velocity_);
 
-    return std::max(std::sqrt(term1_+2.0*max_cart_acc_*distance)+term2_,0.0);
+    double v_safe = std::sqrt(term1_+2.0*max_cart_acc_*distance)+term2_;
+
+    if(verbose_>0)
+      ROS_ERROR_STREAM("[sqrt("<<term1_+2.0*max_cart_acc_*distance<<")]+"<<term2_<<" = "<<v_safe);
+
+    return std::max(v_safe,0.0);
   }
 
 public:

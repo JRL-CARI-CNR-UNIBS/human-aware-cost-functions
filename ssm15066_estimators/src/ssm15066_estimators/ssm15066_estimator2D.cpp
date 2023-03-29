@@ -185,7 +185,9 @@ double SSM15066Estimator2D::computeScalingFactorAtQ(const Eigen::VectorXd& q, co
           return std::numeric_limits<double>::infinity();
         }
         else
-          this_scaling_factor = this_tangential_speed/v_safety; // no division by 0
+        {
+          this_scaling_factor = std::max(this_tangential_speed/v_safety,1.0); // no division by 0
+        }
 
         if(verbose_>0)
           ROS_ERROR_STREAM("v_safety "<<v_safety<<" scaling factor "<<this_scaling_factor);
