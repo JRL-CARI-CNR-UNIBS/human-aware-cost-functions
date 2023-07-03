@@ -80,6 +80,11 @@ public:
   void addObstaclePosition(const Eigen::Vector3d& obstacle_position);
 
   /**
+   * @brief clearObstaclePosition clears the matrix of obstacles locations
+   */
+  void clearObstaclesPositions(){obstacles_positions_.resize(3,0);}
+
+  /**
    * @brief computeMinDistance: computes the minimum distance between the robot's points of interests (poi) and the obstacles present in the scene.
    * @param q: robot configuration
    * @return a DistancePtr object containing the minimum distance information.

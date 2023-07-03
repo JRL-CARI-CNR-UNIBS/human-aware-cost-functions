@@ -326,13 +326,13 @@ double ParallelSSM15066Estimator2D::computeScalingFactorAsync(const unsigned int
       for(size_t i_poi=0;i_poi<poi_poses_in_base.size();i_poi++)
       {
         //consider only links inside the poi_names_ list
-        if(std::find(poi_names_.begin(),poi_names_.end(),links_names_[i_poi])>=poi_names_.end())
+        if(std::find(poi_names_.begin(),poi_names_.end(),frames_names_[i_poi])>=poi_names_.end())
           continue;
 
         distance_vector = obstacles_positions_.col(i_obs)-poi_poses_in_base.at(i_poi).translation();
         distance = distance_vector.norm();
 
-        tangential_speed = ((poi_twist_in_base.at(i_poi).block(0,0,3,1)).dot(distance_vector))/distance;
+        tangential_speed = ((poi_twist_in_base.at(i_poi).topLeftCorner(3,1)).dot(distance_vector))/distance;
 
         if(tangential_speed<=0)  // robot is going away
         {
@@ -388,7 +388,7 @@ double ParallelSSM15066Estimator2D::computeScalingFactorAsync(const unsigned int
 
 pathplan::CostPenaltyPtr ParallelSSM15066Estimator2D::clone()
 {
-  ParallelSSM15066Estimator2DPtr cloned_ssm = std::make_shared<ParallelSSM15066Estimator2D>(chain_->clone(),max_step_size_,obstacles_positions_,n_threads_);
+  ParallelSSM15066Estimator2DPtr cloned_ssm = std::make_shared<ParallelSSM15066Estimator2D>(chain_->clone(),max_step_size_,n_threads_);
 
   cloned_ssm->setPoiNames(poi_names_);
   cloned_ssm->setMaxStepSize(max_step_size_);

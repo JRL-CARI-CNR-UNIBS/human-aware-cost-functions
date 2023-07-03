@@ -43,6 +43,11 @@ struct Distance
   Eigen::VectorXd robot_configuration_;
 
   /**
+   * @brief poi_fk_ is the position (x,y,z) of robot_poi_
+   */
+  Eigen::Vector3d poi_fk_;
+
+  /**
    * @brief robot_poi_ is the index which identifies the poi on the robot structure
    */
   unsigned int robot_poi_;

@@ -65,9 +65,9 @@ protected:
   std::vector<std::string> poi_names_;
 
   /**
-   * @brief links_names_ is a vector of the names of all the links of the robot.
+   * @brief frames_names_ is a vector of the names of all the frames of the robot.
    */
-  std::vector<std::string> links_names_;
+  std::vector<std::string> frames_names_;
 
   /**
    * @brief obstacles_positions_: matrix containing obstacles positions. x,y,z (rows) of obstacles (cols). Number of cols depends on the number of obstacles present in the scene.
@@ -217,9 +217,9 @@ public:
   virtual void addObstaclePosition(const Eigen::Vector3d& obstacle_position);
 
   /**
-   * @brief clearObstaclePosition clears the matrix of obstacles locartions
+   * @brief clearObstaclePosition clears the matrix of obstacles locations
    */
-  void clearObstaclesPositions(){obstacles_positions_.resize(3,0);}
+  virtual void clearObstaclesPositions(){obstacles_positions_.resize(3,0);}
 
   /**
    * @brief computeWorstCaseScalingFactor computes an approximation of the average scaling factor the robot will experience travelling from

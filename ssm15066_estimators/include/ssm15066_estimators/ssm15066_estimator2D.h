@@ -35,12 +35,13 @@ typedef std::shared_ptr<SSM15066Estimator2D> SSM15066Estimator2DPtr;
 
 /**
   * @brief The SSM15066Estimator2D class is a 2D dSSM estimator, that means that the robot velocity vector towards the human is considered.
-  * It computes the scaling factor for each configuration xi along a connection (xs,xg) and then the mean value.
+  * It computes the scaling factor for each configuration xi along a connection (xs,xg) and then the mean value (lambda).
   * The computation is sequential.
   */
 class SSM15066Estimator2D: public SSM15066Estimator
 {
 protected:
+  bool dataset_creation_ = false;
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -48,16 +49,24 @@ public:
   SSM15066Estimator2D(const rosdyn::ChainPtr &chain, const double& max_step_size,
                     const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions);
 
+  void setDatasetCreation(const bool dataset_creation)
+  {
+    dataset_creation_ = dataset_creation;
+  }
+
   /**
    * @brief computeScalingFactorAtQ computes the scaling factor given configuration q and velocity vector dq
    * @param q robot configuration
    * @param dq robot joint velocity vector
    * @param tangential_speed is the components of the velocity of the robot towards the human (0.0 by default)
    * @param distance is the human-robot distance (inf by default)
+   * @param safe_vel is the safe velocity computed (inf by default)
+   * @param poi_position is the rovbot poi 3D position
    * @return the estimated scaling factor (1.0 by default)
    */
-  virtual double computeScalingFactorAtQ(const Eigen::VectorXd& q, const Eigen::VectorXd& dq, double& tangential_speed, double& distance);
-  virtual double computeScalingFactorAtQ(const Eigen::VectorXd& q, const Eigen::VectorXd& dq);
+  double computeScalingFactorAtQ(const Eigen::VectorXd& q, const Eigen::VectorXd& dq, double& tangential_speed,
+                                 double& distance, double &safe_vel, Eigen::Vector3d &poi_position);
+  double computeScalingFactorAtQ(const Eigen::VectorXd& q, const Eigen::VectorXd& dq);
 
   virtual double computeScalingFactor(const Eigen::VectorXd& q1, const Eigen::VectorXd& q2) override;
   virtual pathplan::CostPenaltyPtr clone() override;

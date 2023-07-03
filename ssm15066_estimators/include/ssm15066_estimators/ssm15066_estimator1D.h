@@ -54,6 +54,11 @@ public:
   void addObstaclePosition(const Eigen::Vector3d& obstacle_position) override;
   void setObstaclesPositions(const Eigen::Matrix<double,3,Eigen::Dynamic>& obstacles_positions) override;
 
+  void clearObstaclesPositions() override
+  {
+    min_distance_solver_->clearObstaclesPositions();
+    obstacles_positions_.resize(3,0);
+  }
   virtual double computeScalingFactor(const Eigen::VectorXd& q1, const Eigen::VectorXd& q2) override;
   virtual pathplan::CostPenaltyPtr clone() override;
 };

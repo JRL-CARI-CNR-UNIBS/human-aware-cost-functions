@@ -33,7 +33,7 @@ namespace ssm15066_estimator
 MinDistanceSolver::MinDistanceSolver(const rosdyn::ChainPtr &chain):
   chain_(chain)
 {
-  obstacles_positions_.resize(0,0);
+  obstacles_positions_.resize(3,0);
 
   links_names_ = chain_->getLinksName();
   poi_names_ = links_names_;
@@ -70,7 +70,7 @@ DistancePtr MinDistanceSolver::computeMinDistance(const Eigen::VectorXd& q)
 
   double distance;
   unsigned int poi_idx, obs_idx;
-  Eigen::Vector3d distance_vector, min_distance_vector;
+  Eigen::Vector3d distance_vector, min_distance_vector, i_poi_fk, poi_fk;
 
   double min_distance = std::numeric_limits<double>::infinity();
   std::vector<Eigen::Affine3d, Eigen::aligned_allocator<Eigen::Affine3d>> poi_poses_in_base = chain_->getTransformations(q);
@@ -83,13 +83,15 @@ DistancePtr MinDistanceSolver::computeMinDistance(const Eigen::VectorXd& q)
       if(std::find(poi_names_.begin(),poi_names_.end(),links_names_[i_poi])>=poi_names_.end())
         continue;
 
-      distance_vector = obstacles_positions_.col(i_obs)-poi_poses_in_base.at(i_poi).translation(); //in base
+      i_poi_fk = poi_poses_in_base.at(i_poi).translation();
+      distance_vector = obstacles_positions_.col(i_obs)-i_poi_fk; //in base
       distance = distance_vector.norm();
 
       if(distance<min_distance)
       {
         min_distance = distance;
         min_distance_vector = distance_vector;
+        poi_fk = i_poi_fk;
 
         poi_idx = i_poi;
         obs_idx = i_obs;
@@ -97,11 +99,12 @@ DistancePtr MinDistanceSolver::computeMinDistance(const Eigen::VectorXd& q)
     }
   }
 
-  res->robot_configuration_ = q                  ;
-  res->robot_poi_           = poi_idx            ;
+  res->poi_fk_              = poi_fk             ;
   res->obstacle_            = obs_idx            ;
   res->distance_            = min_distance       ;
+  res->robot_poi_           = poi_idx            ;
   res->distance_vector_     = min_distance_vector;
+  res->robot_configuration_ = q                  ;
 
   return res;
 }

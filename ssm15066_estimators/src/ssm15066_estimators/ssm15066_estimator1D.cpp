@@ -84,14 +84,24 @@ double SSM15066Estimator1D::computeScalingFactor(const Eigen::VectorXd& q1, cons
     poi_twist_in_base = chain_->getTwist(q,dq);
     min_distance = min_distance_solver_->computeMinDistance(q)->distance_;
 
+    if(verbose_)
+    {
+      ROS_ERROR_STREAM("--- q -> "<<q.transpose()<<" ---");
+      ROS_ERROR_STREAM("distance -> "<<min_distance);
+    }
+
     v_safety = safeVelocity(min_distance);
+
+    if(verbose_)
+      ROS_ERROR_STREAM("v_safe -> "<<v_safety);
+
     if(v_safety == 0.0)
       return std::numeric_limits<double>::infinity();
 
     for(size_t i_poi=0;i_poi<poi_twist_in_base.size();i_poi++)
     {
       //consider only links inside the poi_names_ list
-      if(std::find(poi_names_.begin(),poi_names_.end(),links_names_[i_poi])>=poi_names_.end())
+      if(std::find(poi_names_.begin(),poi_names_.end(),frames_names_[i_poi])>=poi_names_.end())
         continue;
 
       velocity = poi_twist_in_base[i_poi].norm();
@@ -102,27 +112,46 @@ double SSM15066Estimator1D::computeScalingFactor(const Eigen::VectorXd& q1, cons
       }
       else if(min_distance>min_distance_)
       {
-        scaling_factor = velocity/v_safety; // no division by 0
-
-        if(scaling_factor > 100)
-          return std::numeric_limits<double>::infinity();
+        scaling_factor = std::max(velocity/v_safety,1.0); // no division by 0
       }
       else  // distance<=min_distance -> you have found the maximum scaling factor, return
       {
+        if(verbose_)
+          ROS_ERROR_STREAM("below safe distance! ");
+
         return std::numeric_limits<double>::infinity();  //if one point q has 0.0 scaling factor, return it
       }
+
+      if(verbose_)
+        ROS_ERROR_STREAM("poi "<<i_poi<<" velocity ->"<<velocity<<" scaling ->"<<scaling_factor);
 
       if(scaling_factor>max_scaling_factor_of_q)
         max_scaling_factor_of_q = scaling_factor;
 
     } // end robot poi for loop
 
+    if(verbose_)
+      ROS_ERROR_STREAM("max scaling of q "<<max_scaling_factor_of_q);
+
     sum_scaling_factor += max_scaling_factor_of_q;
   }
   assert((q2-q).norm()<1e-08);
 
   // return the average scaling factor
-  return sum_scaling_factor/((double) iter+1);
+  double res = sum_scaling_factor/((double) iter+1);
+  assert([&]() ->bool{
+           if(res>=1.0)
+           {
+             return true;
+           }
+           else
+           {
+             ROS_INFO_STREAM("Scaling factor "<<res<<" sum "<<sum_scaling_factor<<" denominator "<<iter+1);
+             return false;
+           }
+         }());
+
+  return res;
 }
 
 pathplan::CostPenaltyPtr SSM15066Estimator1D::clone()

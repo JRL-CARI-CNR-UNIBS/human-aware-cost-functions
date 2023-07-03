@@ -44,8 +44,8 @@ SSM15066Estimator::SSM15066Estimator(const rosdyn::ChainPtr &chain, const double
 
   updateMembers();
 
-  links_names_ = chain_->getLinksName();
-  poi_names_ = links_names_;
+  frames_names_ = chain_->getLinksName();
+  poi_names_ = frames_names_;
 
   verbose_ = 0;
 }
@@ -64,8 +64,8 @@ SSM15066Estimator::SSM15066Estimator(const rosdyn::ChainPtr &chain, const double
 
   updateMembers();
 
-  links_names_ = chain_->getLinksName();
-  poi_names_ = links_names_;
+  frames_names_ = chain_->getLinksName();
+  poi_names_ = frames_names_;
 
   verbose_ = 0;
 }

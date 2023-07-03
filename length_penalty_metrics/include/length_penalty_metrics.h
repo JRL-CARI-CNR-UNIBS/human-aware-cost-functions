@@ -62,6 +62,11 @@ public:
     return penalizer_;
   }
 
+  void setPenalizer(const CostPenaltyPtr& penalizer)
+  {
+    penalizer_ = penalizer;
+  }
+
   virtual double cost(const NodePtr& node1,
                       const NodePtr& node2);
 
