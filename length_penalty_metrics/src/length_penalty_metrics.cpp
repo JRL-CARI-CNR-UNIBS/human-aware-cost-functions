@@ -32,6 +32,13 @@ namespace pathplan
 LengthPenaltyMetrics::LengthPenaltyMetrics(const CostPenaltyPtr &penalizer):
   Metrics(),penalizer_(penalizer){}
 
+LengthPenaltyMetrics::LengthPenaltyMetrics(const CostPenaltyPtr &penalizer, const Eigen::VectorXd& scale):
+  Metrics(),penalizer_(penalizer)
+{
+  if(scale.rows()>0)
+    scale_ = scale;
+}
+
 double LengthPenaltyMetrics::cost(const NodePtr& node1,
                                   const NodePtr& node2)
 {
@@ -65,7 +72,7 @@ double LengthPenaltyMetrics::cost(const Eigen::VectorXd& configuration1,
   if(lambda == std::numeric_limits<double>::infinity()) //set high cost but not infinite (infinity is used to trigger an obstruction)
     lambda = lambda_penalty_;
 
-  return (Metrics::cost(configuration1,configuration2))*lambda;
+  return (LengthPenaltyMetrics::utopia(configuration1,configuration2))*lambda;
 }
 
 double LengthPenaltyMetrics::utopia(const NodePtr& node1,
@@ -74,17 +81,29 @@ double LengthPenaltyMetrics::utopia(const NodePtr& node1,
   return LengthPenaltyMetrics::utopia(node1->getConfiguration(), node2->getConfiguration());
 }
 
-
 double LengthPenaltyMetrics::utopia(const Eigen::VectorXd& configuration1,
                                     const Eigen::VectorXd& configuration2)
 {
-  return Metrics::utopia(configuration1, configuration2);
+  if(scale_.rows() == 0)
+  {
+    scale_.setOnes(configuration1.rows(),configuration1.cols());
+  }
+  else
+  {
+    if(scale_.rows() != configuration1.rows() || scale_.cols() != configuration1.cols())
+      throw std::invalid_argument("scale and configuration1 have different size");
+
+    if(scale_.rows() != configuration2.rows() || scale_.cols() != configuration2.cols())
+      throw std::invalid_argument("scale and configuration2 have different size");
+  }
+
+  return ((configuration2-configuration1).cwiseProduct(scale_)).norm();
 }
 
 MetricsPtr LengthPenaltyMetrics::clone()
 {
   CostPenaltyPtr penalizer_cloned = penalizer_->clone();
-  return std::make_shared<LengthPenaltyMetrics>(penalizer_cloned);
+  return std::make_shared<LengthPenaltyMetrics>(penalizer_cloned,scale_);
 }
 
 }

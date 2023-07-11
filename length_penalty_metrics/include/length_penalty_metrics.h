@@ -38,17 +38,20 @@ class LengthPenaltyMetrics;
 typedef std::shared_ptr<LengthPenaltyMetrics> LengthPenaltyMetricsPtr;
 
 /**
- * @brief The LengthPenaltyMetrics class computes the Euclidean distance between two nodes and penalizes it based on a penalty.
+ * @brief The LengthPenaltyMetrics class computes the Euclidean distance between two nodes, and penalizes it based on a penalty.
+ * Each joint can be weighted using a scale (default set to 1)
  *
- *                            c(q1,q2) = ||q2-q1||*lambda,     with lambda >= 1.0
+ *                            c(q1,q2) = ||(q2-q1).*scale||*lambda,     with lambda >= 1.0
  *
- *        The penalty lambda is computed by the CostPenalty class.
+ *                    The penalty lambda is computed by the CostPenalty class.
 */
+
 
 class LengthPenaltyMetrics: public Metrics
 {
 protected:
-  CostPenaltyPtr penalizer_;
+  CostPenaltyPtr penalizer_; // computes lambda
+  Eigen::VectorXd scale_; // scales the distance vector
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -56,6 +59,7 @@ public:
   static constexpr double lambda_penalty_ = 1.0e12;
 
   LengthPenaltyMetrics(const CostPenaltyPtr& penalizer);
+  LengthPenaltyMetrics(const CostPenaltyPtr& penalizer, const Eigen::VectorXd& scale);
 
   CostPenaltyPtr getPenalizer()
   {
@@ -65,6 +69,16 @@ public:
   void setPenalizer(const CostPenaltyPtr& penalizer)
   {
     penalizer_ = penalizer;
+  }
+
+  void setScale(const Eigen::VectorXd& scale)
+  {
+    scale_ = scale;
+  }
+
+  Eigen::VectorXd getScale()
+  {
+    return scale_;
   }
 
   virtual double cost(const NodePtr& node1,
