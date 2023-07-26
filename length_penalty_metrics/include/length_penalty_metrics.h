@@ -58,7 +58,6 @@ public:
 
   static constexpr double lambda_penalty_ = 1.0e12;
 
-  LengthPenaltyMetrics(const CostPenaltyPtr& penalizer);
   LengthPenaltyMetrics(const CostPenaltyPtr& penalizer, const Eigen::VectorXd& scale);
 
   CostPenaltyPtr getPenalizer()
